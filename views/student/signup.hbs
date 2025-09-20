@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Attendance - Student Registration</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="shortcut icon" href="https://i.pinimg.com/474x/35/10/fd/3510fde9ffb75ed4c651ee5e26988614.jpg" type="image/x-icon">
+    <link rel="stylesheet" href="/style/signup.css">
+</head>
+<body>
+    <div class="main-container">
+        <!-- Enhanced Header -->
+        <div class="header">
+            <h1><i class="fas fa-brain"></i>Smart Attendance</h1>
+            <p>"Join our smart attendance ecosystem"</p>
+            <div class="back-to-login">
+                <a href="/" class="back-link">
+                    <i class="fas fa-arrow-left"></i> Back to Login
+                </a>
+            </div>
+        </div>
+        <div class="registration-forms">
+            <div class="registration-form">
+                <div class="form-header">
+                    <div class="form-icon">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <h2>Student Registration</h2>
+                    <p>Create your student account to start marking attendance</p>
+                </div>
+
+                <form class="register-form" method="POST" action="/student/signup" autocomplete="off">
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label for="student_photo">Student Photo</label>
+                            <div class="photo-upload-container">
+                                <input type="file" id="student_photo" name="photo" class="photo-upload" accept="image/*" required>    
+                                <label for="student_photo" class="photo-upload-label" id="photoUploadLabel">
+                                    <div class="photo-upload-icon">
+                                        <i class="fas fa-camera"></i>
+                                    </div>
+                                    <div class="photo-upload-text">
+                                        <h4>Upload Your Photo</h4>
+                                        <p>Click to select or drag and drop<br>JPG, JPEG</p>
+                                    </div>
+                                </label>
+                                
+                                <div class="photo-preview" id="photoPreview">
+                                    <img id="previewImage" src="" alt="Student Photo">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label for="student_roll_no">University Roll Number</label>
+                            <div class="input-container">
+                                <input type="text" id="student_roll_no" name="rollNumber" class="form-input" placeholder="Enter roll number Ex: 231500xxxx" required maxlength="10">
+                                <i class="fas fa-id-card input-icon"></i>
+                            </div>
+                            <div class="input-feedback"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label for="student_name">Full Name</label>
+                            <div class="input-container">
+                                <input type="text" id="student_name" name="name" class="form-input" placeholder="Enter your full name" required>
+                                <i class="fas fa-user input-icon"></i>
+                            </div>
+                            <div class="input-feedback"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group">
+                            <label for="student_email">Email Address</label>
+                            <div class="input-container">
+                                <input type="email" id="student_email" name="email" class="form-input" placeholder="Enter your University Mail" required>
+                                <i class="fas fa-envelope input-icon"></i>
+                            </div>
+                            <div class="input-feedback"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                    <div class="input-group">
+                        <label for="student_phone">Contact Number</label>
+                        <div class="input-container">
+                            <input type="tel" id="student_phone" name="phone" class="form-input" placeholder="Enter your contact number" required pattern="[0-9]{10}" maxlength="10">
+                            <i class="fas fa-phone input-icon"></i>
+                        </div>
+                            <div class="input-feedback"></div>
+                        </div>
+                    </div>
+
+                    <div class="form-row two-columns">
+                        <div class="input-group">
+                            <label for="student_course">Course</label>
+                            <div class="input-container">
+                                <select id="student_course" name="course" class="form-input" required>
+                                    <option value="">Select Course</option>
+                                    <option value="B.Tech">B.Tech</option>
+                                    <option value="M.Tech">M.Tech</option>
+                                    <option value="BCA">BCA</option>
+                                </select>
+                                <i class="fas fa-book input-icon"></i>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="student_branch">Branch</label>
+                            <div class="input-container">
+                                <select id="student_branch" name="branch" class="form-input" required>
+                                    <option value="">Select Branch</option>
+                                    <option value="CS">CSE</option>
+                                    <option value="EC">EC</option>
+                                    <option value="MCL">ME</option>
+                                    <option value="EE">EE</option>
+                                </select>
+                                <i class="fas fa-code-branch input-icon"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row two-columns">
+                        <div class="input-group">
+                            <label for="student_year">Year</label>
+                            <div class="input-container">
+                                <select id="student_year" name="year" class="form-input" required>
+                                    <option value="">Select Year</option>
+                                    <option value="1">I</option>
+                                    <option value="2">II</option>
+                                    <option value="3">III</option>
+                                    <option value="4">IV</option>
+                                </select>
+                                <i class="fas fa-calendar-alt input-icon"></i>
+                            </div>
+                        </div>
+
+                        <div class="input-group">
+                            <label for="student_semester">Semester</label>
+                            <div class="input-container">
+                                <select id="student_semester" name="semester" class="form-input" required>
+                                    <option value="">Select Semester</option>
+                                    <option value="1">I</option>
+                                    <option value="2">II</option>
+                                    <option value="3">III</option>
+                                    <option value="4">IV</option>
+                                    <option value="5">V</option>
+                                    <option value="6">VI</option>
+                                    <option value="7">VII</option>
+                                    <option value="8">VIII</option>
+                                </select>
+                                <i class="fas fa-list-ol input-icon"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="checkbox-group">
+                            <input type="checkbox" id="student_terms" required>
+                            <label for="student_terms">
+                                I agree to the <a href="#" class="terms-link">Terms and Conditions</a> and <a href="#" class="terms-link">Privacy Policy</a>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="register-btn">
+                        <i class="fas fa-user-plus"></i>
+                        Create Student Account
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="registration-footer">
+            <p>Already have an account? <a href="/" class="login-link">Sign in here</a></p>
+        </div>
+    </div>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const photoInput = document.getElementById('student_photo');
+            const photoUploadLabel = document.getElementById('photoUploadLabel');
+            const photoPreview = document.getElementById('photoPreview');
+            const previewImage = document.getElementById('previewImage');
+            photoInput.addEventListener('change', function(event) {
+                const file = event.target.files[0];
+                
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        previewImage.src = e.target.result;
+                        photoUploadLabel.style.display = 'none';
+                        photoPreview.style.display = 'block';
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

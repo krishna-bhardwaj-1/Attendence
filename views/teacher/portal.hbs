@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teacher Portal - Smart Attendance</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style/teacherportal.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <i class="fas fa-brain"></i>
+                </div>
+                <div class="header-title">
+                    <h1>Smart Attendance</h1>
+                    <p>"Empowering educators with intelligent tracking"</p>
+                </div>
+            </div>
+            
+            <div class="teacher-info">
+                <h3>Welcome, Dr. Sayantan Sinha</h3>
+                <div class="teacher-details">
+                    <span><i class="fas fa-id-badge"></i> GLA19081</span>
+                    <span><i class="fas fa-chalkboard-teacher"></i> Computer Science</span>
+                    <span><i class="fas fa-building"></i> Academic Block-I</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Left Sidebar - Class Schedule -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>My Classes Today</h2>
+                <div class="current-date" id="currentDate"></div>
+            </div>
+            
+            <div class="class-list">
+                <div class="class-item" onclick="selectClass(this, 'Machine Learning', '10:00 - 11:00 AM', 'Academic Block-I 405')">
+                    <div class="class-time">10:00 - 11:00 AM</div>
+                    <div class="class-subject">Machine Learning</div>
+                    <div class="class-location">
+                        <i class="fas fa-map-marker-alt"></i>
+                        Academic Block-I 405
+                    </div>
+                </div>
+
+                <div class="class-item" onclick="selectClass(this, 'Database Manag System', '11:00 - 12:00 PM', 'Academic Block-I 201')">
+                    <div class="class-time">11:00 - 12:00 PM</div>
+                    <div class="class-subject">Database Manag System</div>
+                    <div class="class-location">
+                        <i class="fas fa-map-marker-alt"></i>
+                        Academic Block-I 201
+                    </div>
+                </div>
+
+                <div class="class-item" onclick="selectClass(this, 'Operating System', '12:00 - 01:00 PM', 'Academic Block-I 406')">
+                    <div class="class-time">12:00 - 01:00 PM</div>
+                    <div class="class-subject">Operating System</div>
+                    <div class="class-location">
+                        <i class="fas fa-map-marker-alt"></i>
+                        Academic Block-I 406
+                    </div>
+                </div>
+
+                <div class="class-item" onclick="selectClass(this, 'Computer Networks', '02:00 - 03:00 PM', 'Academic Block-I 205')">
+                    <div class="class-time">02:00 - 03:00 PM</div>
+                    <div class="class-subject">Computer Networks</div>
+                    <div class="class-location">
+                        <i class="fas fa-map-marker-alt"></i>
+                        Academic Block-I 205
+                    </div>
+                </div>
+
+                <div class="class-item" onclick="selectClass(this, 'Software Engineering', '03:00 - 04:00 PM', 'Academic Block-III 102')">
+                    <div class="class-time">03:00 - 04:00 PM</div>
+                    <div class="class-subject">Software Engineering</div>
+                    <div class="class-location">
+                        <i class="fas fa-map-marker-alt"></i>
+                        Academic Block-III 102
+                    </div>
+                </div>
+
+                <div class="class-item" onclick="selectClass(this, 'Machine Learning', '04:00 - 05:00 PM', 'CSED')">
+                    <div class="class-time">04:00 - 05:00 PM</div>
+                    <div class="class-subject">Machine Learning</div>
+                    <div class="class-location">
+                        <i class="fas fa-map-marker-alt"></i>
+                        CSED
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Content Area -->
+        <div class="content-area">
+            <!-- Welcome Section (Default) -->
+            <div class="welcome-section" id="welcomeSection">
+                <h2>👨‍🏫 Welcome to Your Dashboard!</h2>
+                <p>Select a class from your schedule to manage attendance. Once you give access to students, they can mark their attendance using face recognition technology. Monitor real-time attendance and ensure accurate tracking!</p>
+            </div>
+
+            <!-- Class Control Section (Hidden by default) -->
+            <div class="class-control-section" id="classControlSection">
+                <div class="content-header">
+                    <h2 id="selectedClass">Operating Systems</h2>
+                    <p id="selectedTime">10:00 - 11:00 AM • Academic Block-I 406</p>
+                </div>
+
+                <!-- Control Panel -->
+                <div class="control-panel">
+                    <div class="class-info">
+                        <div class="class-icon">
+                            <i class="fas fa-laptop-code"></i>
+                        </div>
+                        <div class="class-details">
+                            <h3 id="controlClassTitle">Operating Systems</h3>
+                            <p id="controlClassDetails">B.Tech Computer Science • Year IV</p>
+                        </div>
+                    </div>
+                    
+                    <div class="access-control">
+                        <div class="current-time-display" id="currentTime"></div>
+                        <button class="give-access-btn" id="giveAccessBtn" onclick="toggleAccess()">
+                            <i class="fas fa-lock"></i>
+                            Give Access to Students
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Students Section -->
+                <div class="students-section">
+                    <div class="students-header">
+                        <div class="students-title">Class Attendance</div>
+                        <div class="attendance-stats">
+                            <div class="stat-item present">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Present: <span id="presentCount">0</span></span>
+                            </div>
+                            <div class="stat-item total">
+                                <i class="fas fa-users"></i>
+                                <span>Total: <span id="totalStudents">75</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Students Grid -->
+                    <div class="students-grid" id="studentsGrid">
+                        <!-- No students message initially -->
+                        <div class="no-students" id="noStudentsMsg">
+                            <i class="fas fa-user-clock"></i>
+                            <p>Give access to students to start attendance tracking</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script>
+        let accessGranted = false;
+let presentStudents = 0;
+const totalStudents = 45;
+
+// Sample student data
+const students = [
+    { id: '2315001170', name: 'Krishna Bhardwaj', course: 'B.Tech CSE' },
+    { id: '2315001471', name: 'Mukund Varshney', course: 'B.Tech CSE' },
+    { id: '2315001372', name: 'Pushkar Varshney', course: 'B.Tech CSE' },
+    { id: '2315001173', name: 'Kush Kumar', course: 'B.Tech CSE' },
+    { id: '2315001674', name: 'Saket Maheswari', course: 'B.Tech CSE' },
+    { id: '2315001175', name: 'Jatin Chauhan', course: 'B.Tech CSE' },
+    { id: '2315001276', name: 'Harsh', course: 'B.Tech CSE' },
+    { id: '2315000077', name: 'Pragati', course: 'B.Tech CSE' }
+];
+
+// Update current date and time
+function updateDateTime() {
+    const now = new Date();
+    
+    // Update date
+    const dateOptions = { 
+        weekday: 'long', 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric' 
+    };
+    document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', dateOptions);
+    
+    // Update time
+    const timeOptions = { 
+        hour: '2-digit', 
+        minute: '2-digit', 
+        second: '2-digit', 
+        hour12: true 
+    };
+    const currentTimeElement = document.getElementById('currentTime');
+    if (currentTimeElement) {
+        currentTimeElement.textContent = now.toLocaleTimeString('en-US', timeOptions);
+    }
+}
+
+    // Select class function
+    function selectClass(element, subject, time, location) {
+        // Remove active class from all items
+        document.querySelectorAll('.class-item').forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Add active class to selected item
+        element.classList.add('active');
+        
+        // Hide welcome section and show class control section
+        document.getElementById('welcomeSection').style.display = 'none';
+        document.getElementById('classControlSection').style.display = 'block';
+        
+        // Update selected class info
+        document.getElementById('selectedClass').textContent = subject;
+        document.getElementById('selectedTime').textContent = `${time} • ${location}`;
+        document.getElementById('controlClassTitle').textContent = subject;
+        
+        // Reset access state
+        resetAccessState();
+    }
+
+    // Reset access state
+    function resetAccessState() {
+        accessGranted = false;
+        presentStudents = 0;
+        const btn = document.getElementById('giveAccessBtn');
+        btn.innerHTML = '<i class="fas fa-lock"></i> Give Access to Students';
+        btn.classList.remove('active');
+        
+        // Reset students display
+        document.getElementById('noStudentsMsg').style.display = 'block';
+        document.getElementById('studentsGrid').innerHTML = `
+            <div class="no-students" id="noStudentsMsg">
+                <i class="fas fa-user-clock"></i>
+                <p>Give access to students to start attendance tracking</p>
+            </div>
+        `;
+        
+        updateAttendanceStats();
+    }
+
+    // Toggle access function
+    function toggleAccess() {
+        const btn = document.getElementById('giveAccessBtn');
+        
+        if (!accessGranted) {
+            // Grant access
+            accessGranted = true;
+            btn.innerHTML = '<i class="fas fa-unlock"></i> Access Granted';
+            btn.classList.add('active');
+            
+            // Show students and start simulation
+            showStudents();
+            startAttendanceSimulation();
+        } else {
+            // Revoke access (optional functionality)
+            accessGranted = false;
+            btn.innerHTML = '<i class="fas fa-lock"></i> Give Access to Students';
+            btn.classList.remove('active');
+            resetAccessState();
+        }
+    }
+
+    // Show students in grid
+    function showStudents() {
+        const studentsGrid = document.getElementById('studentsGrid');
+        studentsGrid.innerHTML = '';
+        
+        students.forEach(student => {
+            const studentCard = document.createElement('div');
+            studentCard.className = 'student-card';
+            studentCard.id = `student-${student.id}`;
+            
+            studentCard.innerHTML = `
+                <div class="student-header">
+                    <div class="student-avatar">${student.name.charAt(0)}</div>
+                    <div class="student-info">
+                        <h4>${student.name}</h4>
+                        <p>${student.id} • ${student.course}</p>
+                    </div>
+                </div>
+                <div class="student-status">
+                    <div class="status-indicator"></div>
+                    <span>Waiting for attendance...</span>
+                </div>
+            `;
+            
+            studentsGrid.appendChild(studentCard);
+        });
+    }
+
+    // Start attendance simulation
+    function startAttendanceSimulation() {
+        if (!accessGranted) return;
+        
+        // Simulate students marking attendance randomly
+        students.forEach((student, index) => {
+            setTimeout(() => {
+                if (accessGranted && Math.random() > 0.3) { // 70% chance of attendance
+                    markStudentPresent(student.id, student.name);
+                }
+            }, (index + 1) * 2000 + Math.random() * 3000); // Random delay
+        });
+    }
+    // Mark student as present
+    function markStudentPresent(studentId, studentName) {
+        const studentCard = document.getElementById(`student-${studentId}`);
+        if (studentCard && !studentCard.classList.contains('present')) {
+            studentCard.classList.add('present');
+            
+            const statusElement = studentCard.querySelector('.student-status span');
+            statusElement.textContent = 'Present';
+            
+            presentStudents++;
+            updateAttendanceStats();
+            
+            // Add animation effect
+            studentCard.style.transform = 'scale(1.05)';
+            setTimeout(() => {
+                studentCard.style.transform = '';
+            }, 300);
+        }
+    }
+
+    // Update attendance statistics
+    function updateAttendanceStats() {
+        document.getElementById('presentCount').textContent = presentStudents;
+        document.getElementById('totalStudents').textContent = totalStudents;
+    }
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        updateDateTime();
+        setInterval(updateDateTime, 1000); // Update every second
+        updateAttendanceStats();
+    });
+    </script>
+</body>
+</html>

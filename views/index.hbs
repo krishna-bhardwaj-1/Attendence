@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Smart Attendance - Login Portal</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/style/login.css">
+    <link rel="shortcut icon" href="https://i.pinimg.com/474x/35/10/fd/3510fde9ffb75ed4c651ee5e26988614.jpg" type="image/x-icon">
+</head>
+<body>
+    <div class="main-container">
+        <div class="header">
+            <h1><i class="fas fa-brain"></i>Smart Attendence</h1>
+            <p>"Eliminate the hassle, empower your educators"</p>
+        </div>
+        <div class="login-portals">
+            <!-- Student Portal -->
+            <div class="portal student-portal">
+                <div class="portal-header">
+                    <div class="portal-icon">
+                        <i class="fas fa-graduation-cap"></i>
+                    </div>
+                    <h2 class="portal-title">Student Portal</h2>
+                </div>
+                
+                <form class="portal-form" method="POST" action="/student/portal" autocomplete="off">
+                    <div class="input-group">
+                        <div class="input-container">
+                            <input type="text" name="rollNumber" class="form-input" placeholder="University Roll No." required>
+                            <i class="fas fa-id-card input-icon"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <div class="input-container">
+                            <input type="text" name="name" class="form-input" placeholder="Full Name" required>
+                            <i class="fas fa-user input-icon"></i>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="portal-btn" id="student-access-btn">
+                        <i class="fas fa-sign-in-alt"></i> Access Portal
+                    </button>
+                </form>
+
+                <div class="signup-section">
+                    <p class="signup-text">Not registered yet?</p>
+                    <a href="/student/signup" class="signup-btn">
+                        <i class="fas fa-user-plus"></i> Sign Up
+                    </a>
+                </div>
+            </div>
+
+            <!-- Teacher Portal -->
+            <div class="portal teacher-portal">
+                <div class="portal-header">
+                    <div class="portal-icon">
+                        <i class="fas fa-chalkboard-teacher"></i>
+                    </div>
+                    <h2 class="portal-title">Educator Portal</h2>
+                </div>
+                
+                <form class="portal-form" method="POST" action="/teacher/portal" autocomplete="off">                    
+                    <div class="input-group">
+                        <div class="input-container">
+                            <input type="text" name="teacherId" class="form-input" placeholder="Teacher ID" required>
+                            <i class="fas fa-id-badge input-icon"></i>
+                        </div>
+                    </div>
+                    
+                    <div class="input-group">
+                        <div class="input-container">
+                            <input type="password" name="password" class="form-input" placeholder="Password" required>
+                            <i class="fas fa-lock input-icon"></i>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="portal-btn" id="teacher-access-btn">
+                        <i class="fas fa-sign-in-alt"></i> Access Dashboard
+                    </button>
+                </form>
+
+                <div class="signup-section">
+                    <p class="signup-text">Need an account?</p>
+                    <a href="/teacher/register" class="signup-btn">
+                        <i class="fas fa-user-plus"></i> Register
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>
