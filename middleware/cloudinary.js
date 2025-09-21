@@ -8,13 +8,28 @@ cloudinary.config({
     api_secret: 'wYUjESOthXZIuTBAbjBXtUqcq1U'
 });
 
+// Test connection
+// cloudinary.api.ping()
+//     .then(result => console.log('Cloudinary connected:', result))
+//     .catch(error => console.error('Cloudinary connection failed:', error));
+
 const storage = new CloudinaryStorage({
     cloudinary: cloudinary,
     params: {
-        folder: 'students'
+        folder: 'students',
+        public_id: (req, file) => {
+            return 'student_' + Date.now();
+        }
     }
 });
 
-const upload = multer({ storage: storage });
+const upload = multer({ 
+    storage: storage,
+    onError: function(err, next) {
+        console.error('Multer error:', err);
+        next(err);
+    }
+});
+
 
 module.exports = upload;

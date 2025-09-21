@@ -444,7 +444,9 @@ body {
     align-items: center;
     gap: 20px;
 }
-
+a{
+    text-decoration: none;
+}
 .status-icon {
     width: 60px;
     height: 60px;

@@ -11,7 +11,6 @@
 </head>
 <body>
     <div class="main-container">
-        <!-- Enhanced Header -->
         <div class="header">
             <h1><i class="fas fa-brain"></i>Smart Attendance</h1>
             <p>"Join our smart attendance ecosystem"</p>
@@ -31,12 +30,12 @@
                     <p>Create your student account to start marking attendance</p>
                 </div>
 
-                <form class="register-form" method="POST" action="/student/signup" autocomplete="off">
+                <form class="register-form" method="POST" action="/student/signup" enctype="multipart/form-data" autocomplete="off">
                     <div class="form-row">
                         <div class="input-group">
                             <label for="student_photo">Student Photo</label>
                             <div class="photo-upload-container">
-                                <input type="file" id="student_photo" name="photo" class="photo-upload" accept="image/*" required>    
+                                <input type="file" id="student_photo" name="photo"  enctype="multipart/form-data" class="photo-upload" accept="image/*" required>    
                                 <label for="student_photo" class="photo-upload-label" id="photoUploadLabel">
                                     <div class="photo-upload-icon">
                                         <i class="fas fa-camera"></i>
@@ -133,10 +132,10 @@
                             <div class="input-container">
                                 <select id="student_year" name="year" class="form-input" required>
                                     <option value="">Select Year</option>
-                                    <option value="1">I</option>
-                                    <option value="2">II</option>
-                                    <option value="3">III</option>
-                                    <option value="4">IV</option>
+                                    <option value="I">I</option>
+                                    <option value="II">II</option>
+                                    <option value="III">III</option>
+                                    <option value="IV">IV</option>
                                 </select>
                                 <i class="fas fa-calendar-alt input-icon"></i>
                             </div>

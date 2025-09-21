@@ -1,0 +1,53 @@
+<div class="class-control-section" id="classControlSection" style="display: none;">
+    <div class="content-header">
+        <h2 id="selectedClass">Selected Class</h2>
+        <p id="selectedTime">Time • Location</p>
+    </div>
+
+    <div class="control-panel">
+        <div class="class-info">
+            <div class="class-icon">
+                <i class="fas fa-laptop-code"></i>
+            </div>
+            <div class="class-details">
+                <h3 id="controlClassTitle">Selected Class</h3>
+                <p id="controlClassDetails">B.Tech Computer Science</p>
+            </div>
+        </div>
+        
+        <div class="access-control">
+            <div class="current-time-display" id="currentTime"></div>
+            <a href="/teacher/give-access">
+                <button class="give-access-btn" id="giveAccessBtn">
+                    <i class="fas fa-lock"></i>
+                    Give Access to Students
+                </button>
+            </a>
+        </div>
+    </div>
+
+    <div class="students-section">
+        <div class="students-header">
+            <div class="students-title">Class Attendance</div>
+            <div class="attendance-stats">
+                <div class="stat-item present">
+                    <i class="fas fa-check-circle"></i>
+                    <span>Present: <span id="presentCount">0</span></span>
+                </div>
+                <div class="stat-item total">
+                    <i class="fas fa-users"></i>
+                    <span>Total: <span id="totalStudents">45</span></span>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Students Grid -->
+        <div class="students-grid" id="studentsGrid">
+            <!-- No students message initially -->
+            <div class="no-students" id="noStudentsMsg">
+                <i class="fas fa-user-clock"></i>
+                <p>Give access to students to start attendance tracking</p>
+            </div>
+        </div>
+    </div>
+</div>
