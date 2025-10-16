@@ -1,14 +1,15 @@
-const Student=require('../models/student');
+const Student = require('../models/student');
+const ClassAccess = require('../models/classAccess');
 
-module.exports.getSignUp=async (req,res,next)=>{
-    res.render('../views/student/signup')
+module.exports.getSignUp = async (req, res, next) => {
+    res.render('../views/student/signup');
 }
 
-module.exports.postSignUp=async (req,res,next)=>{
-    try{
-        const {rollNumber,name,email,phone,course,branch,year,semester}=req.body;
+module.exports.postSignUp = async (req, res, next) => {
+    try {
+        const { rollNumber, name, email, phone, course, branch, year, semester } = req.body;
         await Student.create({
-            photo:req.file.path,
+            photo: req.file.path,
             rollNumber,
             name,
             email,
@@ -18,8 +19,7 @@ module.exports.postSignUp=async (req,res,next)=>{
             year,
             semester
         });
-    }
-    catch(err){
+    } catch (err) {
         console.log(err);
     }
     res.redirect('/');
@@ -64,11 +64,50 @@ const sampleTimetable = {
     }
 };
 
-module.exports.postPortal=async (req,res,next)=>{
-    const {rollNumber,name}=req.body;
-    const student=await Student.findOne({rollNumber,name});
-    if(!student){
+module.exports.postPortal = async (req, res, next) => {
+    const { rollNumber, name } = req.body;
+    const student = await Student.findOne({ rollNumber, name });
+    if (!student) {
         return res.redirect('/');
     }
-    res.render('../views/student/portal',{student,timetable:sampleTimetable});
+    res.render('../views/student/portal', { student, timetable: sampleTimetable });
+}
+
+// Check if access is granted for a specific class
+module.exports.checkAccess = async (req, res, next) => {
+    try {
+        const { subject, time, room } = req.query;
+
+        if (!subject || !time || !room) {
+            return res.status(400).json({
+                success: false,
+                message: 'Missing required parameters'
+            });
+        }
+
+        const classAccess = await ClassAccess.findOne({ subject, time, room });
+
+        if (!classAccess) {
+            return res.json({
+                success: true,
+                accessGranted: false,
+                message: 'No access record found'
+            });
+        }
+
+        res.json({
+            success: true,
+            accessGranted: classAccess.accessGranted,
+            grantedAt: classAccess.grantedAt,
+            message: classAccess.accessGranted ? 'Access granted' : 'Access not granted'
+        });
+
+    } catch (error) {
+        console.error('Error in checkAccess:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Internal server error',
+            error: error.message
+        });
+    }
 }

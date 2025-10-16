@@ -7,8 +7,17 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style/teacherportal.css">
+    <style>
+        #classControlSection {
+            display: none !important;
+        }
+
+        #classControlSection.active {
+            display: block !important;
+        }
+    </style>
 </head>
-<body>
+<body data-teacher-id="{{teacher.teacherId}}">
     <!-- Header -->
     <header class="header">
         <div class="header-content">
@@ -112,10 +121,61 @@
                 <p>Select a class from your schedule to manage attendance. Once you give access to students, they can mark their attendance using face recognition technology. Monitor real-time attendance and ensure accurate tracking!</p>
             </div>
 
-            {{>teacherrightsidecontent}}
+            {{!-- right side content --}}
+            <div class="class-control-section" id="classControlSection">
+                <div class="content-header">
+                    <h2 id="selectedClass">Selected Class</h2>
+                    <p id="selectedTime">Time • Location</p>
+                </div>
+
+                <div class="control-panel">
+                    <div class="class-info">
+                        <div class="class-icon">
+                            <i class="fas fa-laptop-code"></i>
+                        </div>
+                        <div class="class-details">
+                            <h3 id="controlClassTitle">Selected Class</h3>
+                            <p id="controlClassDetails">B.Tech Computer Science</p>
+                        </div>
+                    </div>
+                    
+                    <div class="access-control">
+                        <div class="current-time-display" id="currentTime"></div>
+                        <button class="give-access-btn" id="giveAccessBtn">
+                            <i class="fas fa-lock"></i>
+                            Give Access to Students
+                        </button>
+                    </div>
+                </div>
+
+                <div class="students-section">
+                    <div class="students-header">
+                        <div class="students-title">Class Attendance</div>
+                        <div class="attendance-stats">
+                            <div class="stat-item present">
+                                <i class="fas fa-check-circle"></i>
+                                <span>Present: <span id="presentCount">0</span></span>
+                            </div>
+                            <div class="stat-item total">
+                                <i class="fas fa-users"></i>
+                                <span>Total: <span id="totalStudents">45</span></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Students Grid -->
+                    <div class="students-grid" id="studentsGrid">
+                        <!-- No students message initially -->
+                        <div class="no-students" id="noStudentsMsg">
+                            <i class="fas fa-user-clock"></i>
+                            <p>Give access to students to start attendance tracking</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <script src="/js/teacherportal.js"></script>
+    <script src="/js/teacher.js"></script>
 </body>
 </html>

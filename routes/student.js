@@ -10,4 +10,6 @@ router.post('/portal',studentController.postPortal);
 
 router.post('/signup',upload.single('photo'),studentController.postSignUp);
 
+router.get('/check-access', studentController.checkAccess);
+
 module.exports=router;
