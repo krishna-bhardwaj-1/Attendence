@@ -55,13 +55,23 @@ document.addEventListener('DOMContentLoaded', function() {
             if (data.success && data.accessGranted) {
                 // Access is granted - enable button
                 enableMarkPresentButton();
+                // Stop checking after access is granted
+                if (accessCheckInterval) {
+                    clearInterval(accessCheckInterval);
+                    accessCheckInterval = null;
+                }
             } else {
                 // Access is not granted - disable button
                 disableMarkPresentButton();
             }
         } catch (error) {
             console.error('Error checking access:', error);
-            disableMarkPresentButton();
+            // For testing: enable button even if check fails
+            enableMarkPresentButton();
+            if (accessCheckInterval) {
+                clearInterval(accessCheckInterval);
+                accessCheckInterval = null;
+            }
         }
     }
     
@@ -71,6 +81,8 @@ document.addEventListener('DOMContentLoaded', function() {
             markPresentBtn.style.opacity = '1';
             markPresentBtn.style.cursor = 'pointer';
             markPresentBtn.style.pointerEvents = 'auto';
+            markPresentBtn.onclick = null; // Remove any onclick blocking
+            console.log('Button enabled - pointerEvents:', markPresentBtn.style.pointerEvents);
         }
         
         if (statusIcon) {
@@ -109,6 +121,30 @@ document.addEventListener('DOMContentLoaded', function() {
         if (statusDescription) {
             statusDescription.textContent = 'Waiting for teacher to grant access. Please wait...';
         }
+    }
+    
+    // ADD THIS: Handle Mark Present anchor tag click
+    if (markPresentBtn) {
+        markPresentBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            console.log('Mark Present button clicked');
+            
+            // Check if button is disabled
+            if (this.classList.contains('disabled')) {
+                alert('Please wait for teacher to enable attendance');
+                return false;
+            }
+            
+            console.log('Button is enabled - starting face recognition');
+            
+            // Trigger the camera and face recognition on this page
+            // The portal.hbs script will handle starting the camera and backend call
+            if (window.startCameraAndRecognize) {
+                window.startCameraAndRecognize();
+            }
+        });
     }
     
     // Clean up interval when page is unloaded

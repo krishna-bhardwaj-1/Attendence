@@ -1,5 +1,6 @@
 const Teacher = require('../models/teacher');
 const ClassAccess = require('../models/classAccess');
+const MarkPresent = require('../models/markpresent');
 
 module.exports.getRegister = async (req, res, next) => {
     res.render('../views/teacher/register');
@@ -73,6 +74,8 @@ module.exports.grantAccess = async (req, res, next) => {
             });
         }
 
+        console.log(`[Access Control] ${accessGranted ? 'Granting' : 'Revoking'} access for ${subject}`);
+
         // Find existing access record or create new one
         let classAccess = await ClassAccess.findOne({ subject, time, room });
 
@@ -89,6 +92,7 @@ module.exports.grantAccess = async (req, res, next) => {
             }
             
             await classAccess.save();
+            console.log(`[Access Control] Updated existing record`);
         } else {
             // Create new record
             classAccess = await ClassAccess.create({
@@ -100,6 +104,7 @@ module.exports.grantAccess = async (req, res, next) => {
                 grantedAt: accessGranted ? new Date() : null,
                 revokedAt: accessGranted ? null : new Date()
             });
+            console.log(`[Access Control] Created new record`);
         }
 
         res.json({
@@ -117,3 +122,47 @@ module.exports.grantAccess = async (req, res, next) => {
         });
     }
 }
+
+// Check access status
+module.exports.checkAccessStatus = async (req, res) => {
+    try {
+        const { subject, time, room } = req.query;
+        
+        const classAccess = await ClassAccess.findOne({ subject, time, room });
+        
+        res.json({
+            success: true,
+            accessGranted: classAccess ? classAccess.accessGranted : false
+        });
+    } catch (error) {
+        console.error('Error checking access:', error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// Get attendance for specific class
+module.exports.getAttendance = async (req, res) => {
+    try {
+        const { subject, time, room } = req.query;
+        
+        console.log(`[Get Attendance] Fetching for ${subject} at ${time}`);
+        
+        // Get today's attendance
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const attendance = await MarkPresent.find({
+            timestamp: { $gte: today }
+        }).sort({ timestamp: -1 });
+        
+        console.log(`[Get Attendance] Found ${attendance.length} records`);
+        
+        res.json({
+            success: true,
+            attendance: attendance
+        });
+    } catch (error) {
+        console.error('Error getting attendance:', error);
+        res.json({ success: false, message: error.message });
+    }
+};

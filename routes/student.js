@@ -12,4 +12,6 @@ router.post('/signup',upload.single('photo'),studentController.postSignUp);
 
 router.get('/check-access', studentController.checkAccess);
 
+router.get('/mark-attendence-face', studentController.getMarkAttendenceFace);
+
 module.exports=router;
