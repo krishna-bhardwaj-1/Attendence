@@ -32,6 +32,15 @@ const markPresentSchema = new Schema({
     framesProcessed: {
         type: Number,
         default: 0
+    },
+    subject: {
+        type: String
+    },
+    time: {
+        type: String
+    },
+    room: {
+        type: String
     }
 });
 

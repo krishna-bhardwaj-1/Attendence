@@ -1,8 +1,15 @@
 const Student = require('../models/student');
 const ClassAccess = require('../models/classAccess');
 const MarkPresent = require('../models/markpresent');
-const { PythonShell } = require('python-shell');
+const { spawn } = require('child_process');
 const path = require('path');
+
+// Allow configuring Python path via environment variable
+// Prioritize conda environment Python for this project
+const PYTHON_PATH = process.env.PYTHON_PATH || 
+    '/opt/anaconda3/envs/project/bin/python3' ||
+    (process.platform === 'darwin' ? '/Users/krishna/.pyenv/shims/python3' : 'python3') ||
+    'python3';
 
 module.exports.getSignUp = async (req, res, next) => {
     res.render('../views/student/signup');
@@ -11,9 +18,34 @@ module.exports.getSignUp = async (req, res, next) => {
 module.exports.postSignUp = async (req, res, next) => {
     try {
         const { rollNumber, name, email, phone, course, branch, year, semester } = req.body;
+        
+        // Check if file was uploaded
+        if (!req.file) {
+            console.error('[Signup] No file uploaded');
+            return res.status(400).send(`
+                <script>
+                    alert('Please upload a photo');
+                    window.history.back();
+                </script>
+            `);
+        }
+
+        // Verify Cloudinary URL is valid
+        if (!req.file.path || !req.file.path.includes('cloudinary.com')) {
+            console.error('[Signup] Invalid Cloudinary URL:', req.file.path);
+            return res.status(500).send(`
+                <script>
+                    alert('Image upload failed. Please try again.');
+                    window.history.back();
+                </script>
+            `);
+        }
+
+        console.log('[Signup] Photo uploaded successfully:', req.file.path);
+        
         await Student.create({
             photo: req.file.path,
-            rollNumber,
+            rollNumber: parseInt(rollNumber),
             name,
             email,
             phone,
@@ -22,10 +54,19 @@ module.exports.postSignUp = async (req, res, next) => {
             year,
             semester
         });
+        
+        console.log('[Signup] Student registered successfully');
+        res.redirect('/');
+        
     } catch (err) {
-        console.log(err);
+        console.error('[Signup] Error:', err);
+        res.status(500).send(`
+            <script>
+                alert('Registration failed: ${err.message}');
+                window.history.back();
+            </script>
+        `);
     }
-    res.redirect('/');
 }
 
 const sampleTimetable = {
@@ -68,19 +109,125 @@ const sampleTimetable = {
 };
 
 module.exports.postPortal = async (req, res, next) => {
-    const { rollNumber, name } = req.body;
-    const student = await Student.findOne({ rollNumber, name });
-    if (!student) {
-        return res.redirect('/');
+    try {
+        const { rollNumber, name } = req.body;
+        
+        console.log('='.repeat(60));
+        console.log('Login attempt:', { rollNumber, name });
+        console.log('Type of rollNumber:', typeof rollNumber);
+        
+        if (!rollNumber || !name) {
+            console.log('Missing credentials');
+            return res.render('../views/student/login', {
+                error: 'Please enter both roll number and name'
+            });
+        }
+        
+        // Try multiple query variations
+        console.log('Trying query 1: rollNumber as Number...');
+        let student = await Student.findOne({ rollNumber: parseInt(rollNumber) });
+        
+        if (!student) {
+            console.log('Query 1 failed. Trying query 2: rollNumber as String...');
+            student = await Student.findOne({ rollNumber: String(rollNumber) });
+        }
+        
+        if (!student) {
+            console.log('Query 2 failed. Trying query 3: Any student with this roll number...');
+            student = await Student.findOne({ 
+                $or: [
+                    { rollNumber: parseInt(rollNumber) },
+                    { rollNumber: String(rollNumber) }
+                ]
+            });
+        }
+        
+        // Debug: Show all students to compare
+        console.log('Fetching all students for comparison...');
+        const allStudents = await Student.find({}).limit(5);
+        console.log('Sample students in DB:');
+        allStudents.forEach(s => {
+            console.log(`  - Roll: ${s.rollNumber} (${typeof s.rollNumber}), Name: ${s.name}`);
+        });
+        
+        if (!student) {
+            console.log('✗ Student not found after all attempts');
+            return res.render('../views/index', {
+                error: `Student with roll number ${rollNumber} not found. Please check your credentials.`
+            });
+        }
+        
+        console.log('✓ Student found:', student.name);
+        console.log('Student data:', {
+            rollNumber: student.rollNumber,
+            name: student.name,
+            email: student.email
+        });
+        
+        // Check name match (case-insensitive)
+        const nameTrimmed = name.trim();
+        const studentNameTrimmed = student.name.trim();
+        
+        if (studentNameTrimmed.toLowerCase() !== nameTrimmed.toLowerCase()) {
+            console.log('✗ Name mismatch:');
+            console.log(`  Expected: "${studentNameTrimmed}"`);
+            console.log(`  Received: "${nameTrimmed}"`);
+            return res.render('../views/student/login', {
+                error: `Name does not match. Expected: "${studentNameTrimmed}"`
+            });
+        }
+        
+        console.log('✓ Name matched successfully');
+        
+        // Store in session if available
+        if (req.session) {
+            req.session.studentId = student._id;
+            req.session.rollNumber = student.rollNumber;
+            req.session.studentName = student.name;
+            req.session.studentLoggedIn = true;
+        }
+
+        console.log('✓ Redirecting to portal...');        
+        res.render('../views/student/portal', { 
+            student, 
+            timetable: sampleTimetable 
+        });
+        
+    } catch (error) {
+        console.error('✗ Error in postPortal:', error);
+        res.render('../views/student/login', {
+            error: 'An error occurred. Please try again.'
+        });
     }
-    
-    if (req.session) {
-        req.session.studentId = student._id;
-        req.session.rollNumber = student.rollNumber;
-        req.session.studentName = student.name;
+}
+
+// GET portal route - render portal for logged-in students
+module.exports.getPortal = async (req, res, next) => {
+    try {
+        // Check if student is logged in via session
+        if (!req.session || !req.session.studentLoggedIn || !req.session.studentId) {
+            return res.redirect('/');
+        }
+        
+        // Get student from database
+        const student = await Student.findById(req.session.studentId);
+        
+        if (!student) {
+            // Clear invalid session
+            req.session.destroy();
+            return res.redirect('/');
+        }
+        
+        // Render student portal
+        res.render('../views/student/portal', { 
+            student, 
+            timetable: sampleTimetable 
+        });
+        
+    } catch (error) {
+        console.error('Error in getPortal:', error);
+        res.redirect('/');
     }
-    
-    res.render('../views/student/portal', { student, timetable: sampleTimetable });
 }
 
 module.exports.checkAccess = async (req, res, next) => {
@@ -115,172 +262,191 @@ module.exports.checkAccess = async (req, res, next) => {
         console.error('Error in checkAccess:', error);
     }
 }
-
-module.exports.showFaceDetection = async (req, res, next) => {
+// NEW: Recognize single frame
+module.exports.recognizeFrame = async (req, res) => {
     try {
-        res.render('../views/student/face-detection', { 
-            rollNumber: req.query.rollNumber,
-            subject: req.query.subject,
-            time: req.query.time,
-            room: req.query.room
+        const { rollNumber, frame } = req.body;
+        
+        if (!rollNumber || !frame) {
+            return res.json({ faceDetected: false });
+        }
+
+        // Find student
+        const student = await Student.findOne({ rollNumber: parseInt(rollNumber) });
+        if (!student || !student.photo) {
+            return res.json({ faceDetected: false });
+        }
+
+        // Call Python with frame data - Add timeout to prevent hanging
+        const python = spawn(PYTHON_PATH, [
+            '-W', 'ignore::UserWarning',
+            path.join(__dirname, '../ml/compare_frame.py'),
+            student.photo,
+            frame
+        ]);
+
+        let result = '';
+        let hasResponded = false;
+        
+        // Set timeout for Python process (12 seconds max - increased for slower processing)
+        const processTimeout = setTimeout(() => {
+            if (!hasResponded) {
+                hasResponded = true;
+                python.kill('SIGKILL');
+                console.error('[Frame Recognition] Python process timeout - killing process');
+                res.json({ faceDetected: false, error: 'Process timeout' });
+            }
+        }, 12000);
+
+        python.stdout.on('data', (data) => {
+            result += data.toString();
         });
-    } catch (error) {
-        console.error('Error showing face detection:', error);
-        res.status(500).send('Error loading face detection window');
-    }
-}
 
-// MAIN FACE RECOGNITION ENDPOINT
-module.exports.getMarkAttendenceFace = async (req, res, next) => {
+        // Suppress stderr warnings (only log real errors)
+        python.stderr.on('data', (data) => {
+            const errorMsg = data.toString();
+            // Only log if it's not the pkg_resources warning
+            if (!errorMsg.includes('pkg_resources is deprecated')) {
+                console.error('[Python stderr]', errorMsg);
+            }
+        });
+
+        python.on('close', (code) => {
+            if (hasResponded) return;
+            hasResponded = true;
+            clearTimeout(processTimeout);
+            
+            // Log non-zero exit codes
+            if (code !== 0) {
+                console.error(`[Frame Recognition] Python exited with code ${code}`);
+                console.error(`[Frame Recognition] Output: ${result.substring(0, 200)}`);
+            }
+            
+            try {
+                const rawOutput = result.trim().split('\n').pop();
+                if (!rawOutput) {
+                    console.error('[Frame Recognition] No output from Python script');
+                    res.json({ faceDetected: false, error: 'No output' });
+                    return;
+                }
+                const parsed = JSON.parse(rawOutput);
+                // Only log successful matches to reduce console spam
+                if (parsed.matched) {
+                    console.log('[Frame Recognition] Match:', parsed.confidence.toFixed(3));
+                } else if (parsed.error) {
+                    console.error('[Frame Recognition] Python error:', parsed.error);
+                }
+                res.json(parsed);
+            } catch (e) {
+                console.error('[Frame Recognition Parse Error]', e.message);
+                console.error('[Frame Recognition] Raw output:', result.substring(0, 500));
+                res.json({ faceDetected: false, error: 'Parse error' });
+            }
+        });
+
+        python.on('error', (error) => {
+            if (hasResponded) return;
+            hasResponded = true;
+            clearTimeout(processTimeout);
+            console.error('[Frame Recognition] Python spawn error:', error.message);
+            console.error('[Frame Recognition] Python path:', PYTHON_PATH);
+            console.error('[Frame Recognition] Student photo URL:', student.photo);
+            res.json({ faceDetected: false, error: 'Process error: ' + error.message });
+        });
+
+    } catch (error) {
+        console.error('Frame recognition error:', error);
+        res.json({ faceDetected: false });
+    }
+};
+
+// NEW: Save attendance after recognition
+module.exports.saveAttendance = async (req, res) => {
     try {
-        const rollNumber = req.query.rollNumber || req.body.rollNumber;
+        const { rollNumber, confidence, subject, time, room } = req.body;
+
+        if (!subject || !time || !room) {
+            return res.json({ success: false, message: 'Class information missing' });
+        }
+
+        const student = await Student.findOne({ rollNumber: parseInt(rollNumber) });
+        if (!student) {
+            return res.json({ success: false, message: 'Student not found' });
+        }
+
+        // Check if already marked for THIS SPECIFIC CLASS today
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        
+        const existing = await MarkPresent.findOne({
+            rollNumber: parseInt(rollNumber),
+            subject: subject,
+            time: time,
+            room: room,
+            timestamp: { $gte: today }
+        });
+
+        if (existing) {
+            return res.json({ success: false, message: `Already marked attendance for ${subject} today` });
+        }
+
+        // Save attendance with class information
+        await MarkPresent.create({
+            rollNumber: parseInt(rollNumber),
+            studentName: student.name,
+            timestamp: new Date(),
+            method: 'face_recognition',
+            confidence: confidence,
+            status: 'present',
+            framesProcessed: 0,
+            subject: subject,
+            time: time,
+            room: room
+        });
+
+        res.json({
+            success: true,
+            message: `Student: ${student.name}\nRoll No: ${rollNumber}\nSubject: ${subject}\nConfidence: ${(confidence * 100).toFixed(1)}%\nTime: ${new Date().toLocaleTimeString()}`
+        });
+
+    } catch (error) {
+        console.error('Save attendance error:', error);
+        res.json({ success: false, message: error.message });
+    }
+};
+
+// Get recent attendance records for student
+module.exports.getRecentAttendance = async (req, res) => {
+    try {
+        const { rollNumber } = req.query;
         
         if (!rollNumber) {
-            console.error('[Face Recognition] No roll number provided');
-            return res.status(400).send(`
-                <script>
-                    alert('Roll number is required');
-                    window.history.back();
-                </script>
-            `);
+            return res.json({
+                success: false,
+                message: 'Roll number required',
+                attendance: []
+            });
         }
 
-        console.log(`\n========================================`);
-        console.log(`[Face Recognition] Starting for roll number: ${rollNumber}`);
-        console.log(`========================================\n`);
+        // Get recent attendance records (last 10) for this student
+        const attendance = await MarkPresent.find({
+            rollNumber: parseInt(rollNumber)
+        })
+        .sort({ timestamp: -1 })
+        .limit(10)
+        .lean();
 
-        // Find student in database
-        const student = await Student.findOne({ rollNumber: parseInt(rollNumber) });
-        
-        if (!student) {
-            console.error('[Face Recognition] Student not found in database');
-            return res.status(404).send(`
-                <script>
-                    alert('Student not found in database');
-                    window.history.back();
-                </script>
-            `);
-        }
-
-        if (!student.photo) {
-            console.error('[Face Recognition] No photo registered for student');
-            return res.status(400).send(`
-                <script>
-                    alert('No photo registered. Please contact admin to upload your photo.');
-                    window.history.back();
-                </script>
-            `);
-        }
-
-        console.log(`[Face Recognition] Student: ${student.name}`);
-        console.log(`[Face Recognition] Photo URL: ${student.photo}`);
-
-        // Python script configuration
-        const options = {
-            mode: 'json',
-            pythonPath: '/opt/anaconda3/envs/project/bin/python3',
-            pythonOptions: ['-u'],
-            scriptPath: path.join(__dirname, '../ml'),
-            args: [
-                student.photo,
-                rollNumber.toString(),
-                '30'  // 30 seconds timeout
-            ]
-        };
-
-        console.log(`[Face Recognition] Python Path: ${options.pythonPath}`);
-        console.log(`[Face Recognition] Script Path: ${options.scriptPath}`);
-        console.log(`[Face Recognition] Starting Python script...\n`);
-
-        // Run Python script
-        PythonShell.run('student_face_recognition.py', options, async (err, results) => {
-            if (err) {
-                console.error('[Face Recognition] ✗ Python Script Error:', err);
-                return res.status(500).send(`
-                    <script>
-                        alert('Face recognition failed: ${err.message.replace(/'/g, "\\'")}\\n\\nPlease ensure:\\n1. Camera is connected and not in use\\n2. Python dependencies are installed\\n3. Good lighting is available');
-                        window.history.back();
-                    </script>
-                `);
-            }
-
-            if (!results || results.length === 0) {
-                console.error('[Face Recognition] ✗ No output from Python script');
-                return res.status(500).send(`
-                    <script>
-                        alert('No response from face recognition system');
-                        window.history.back();
-                    </script>
-                `);
-            }
-
-            const result = results[0];
-            console.log('\n[Face Recognition] Result received:');
-            console.log(JSON.stringify(result, null, 2));
-
-            if (result.success && result.recognized) {
-                // Face recognized successfully
-                console.log(`\n[Face Recognition] ✓ FACE RECOGNIZED`);
-                console.log(`[Face Recognition] Confidence: ${(result.confidence * 100).toFixed(1)}%`);
-                console.log(`[Face Recognition] Frames processed: ${result.frames_processed}`);
-                
-                try {
-                    // Save attendance to database
-                    const attendanceRecord = await MarkPresent.create({
-                        rollNumber: parseInt(rollNumber),
-                        studentName: student.name,
-                        timestamp: new Date(),
-                        method: 'face_recognition',
-                        confidence: result.confidence,
-                        status: 'present',
-                        framesProcessed: result.frames_processed || 0
-                    });
-
-                    console.log(`[Face Recognition] ✓ Attendance saved to database`);
-                    console.log(`[Face Recognition] Record ID: ${attendanceRecord._id}`);
-                    console.log(`========================================\n`);
-                    
-                    return res.status(200).send(`
-                        <script>
-                            alert('✓ Attendance Marked Successfully!\\n\\nStudent: ${student.name}\\nRoll No: ${rollNumber}\\nConfidence: ${(result.confidence * 100).toFixed(1)}%\\nFrames Processed: ${result.frames_processed}\\nTime: ${new Date().toLocaleTimeString()}');
-                            window.location.href = '/student/portal';
-                        </script>
-                    `);
-                    
-                } catch (dbError) {
-                    console.error('[Face Recognition] ✗ Database Error:', dbError);
-                    return res.status(500).send(`
-                        <script>
-                            alert('Face recognized but failed to save attendance:\\n${dbError.message.replace(/'/g, "\\'")}');
-                            window.history.back();
-                        </script>
-                    `);
-                }
-                
-            } else {
-                // Face not recognized
-                console.log(`\n[Face Recognition] ✗ FACE NOT RECOGNIZED`);
-                console.log(`[Face Recognition] Best confidence: ${(result.confidence * 100).toFixed(1)}%`);
-                console.log(`[Face Recognition] Frames checked: ${result.frames_processed}`);
-                console.log(`[Face Recognition] Message: ${result.message}`);
-                console.log(`========================================\n`);
-                
-                return res.status(200).send(`
-                    <script>
-                        alert('✗ Face Not Recognized\\n\\n${result.message}\\n\\nBest Confidence: ${(result.confidence * 100).toFixed(1)}%\\nFrames Checked: ${result.frames_processed || 0}\\n\\nTips:\\n• Ensure good lighting\\n• Look directly at camera\\n• Remove glasses if wearing\\n• Stay still during recognition\\n• Try again');
-                        window.history.back();
-                    </script>
-                `);
-            }
+        res.json({
+            success: true,
+            attendance: attendance
         });
 
     } catch (error) {
-        console.error('[Face Recognition] ✗ Controller Error:', error);
-        return res.status(500).send(`
-            <script>
-                alert('Server error occurred:\\n${error.message.replace(/'/g, "\\'")}\\n\\nPlease try again or contact support.');
-                window.history.back();
-            </script>
-        `);
+        console.error('Get recent attendance error:', error);
+        res.json({
+            success: false,
+            message: error.message,
+            attendance: []
+        });
     }
 };

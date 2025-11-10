@@ -123,29 +123,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    // ADD THIS: Handle Mark Present anchor tag click
-    if (markPresentBtn) {
-        markPresentBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-            
-            console.log('Mark Present button clicked');
-            
-            // Check if button is disabled
-            if (this.classList.contains('disabled')) {
-                alert('Please wait for teacher to enable attendance');
-                return false;
-            }
-            
-            console.log('Button is enabled - starting face recognition');
-            
-            // Trigger the camera and face recognition on this page
-            // The portal.hbs script will handle starting the camera and backend call
-            if (window.startCameraAndRecognize) {
-                window.startCameraAndRecognize();
-            }
-        });
-    }
+    // Mark Present click is handled in views/student/portal.hbs
     
     // Clean up interval when page is unloaded
     window.addEventListener('beforeunload', function() {

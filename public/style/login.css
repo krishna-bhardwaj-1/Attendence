@@ -27,10 +27,6 @@
 body {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     background: var(--primary-bg);
-    background-image: 
-        radial-gradient(circle at 20% 80%, rgba(0, 212, 170, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 80% 20%, rgba(14, 165, 233, 0.1) 0%, transparent 50%),
-        radial-gradient(circle at 40% 40%, rgba(139, 92, 246, 0.05) 0%, transparent 50%);
     min-height: 100vh;
     display: flex;
     align-items: center;
@@ -98,7 +94,234 @@ body {
     opacity: 0.9;
 }
 
-/* Side by side login container */
+/* Card Selection View */
+.card-selection {
+    width: 100%;
+    max-width: 1200px;
+}
+
+.selection-cards {
+    display: flex;
+    gap: 40px;
+    justify-content: center;
+    align-items: stretch;
+    flex-wrap: wrap;
+}
+
+.selection-card {
+    flex: 1;
+    min-width: 300px;
+    max-width: 450px;
+    background: var(--card-bg);
+    border-radius: 24px;
+    padding: 50px 40px;
+    border: 1px solid var(--border-subtle);
+    box-shadow: 
+        0 20px 60px rgba(0, 0, 0, 0.4),
+        0 0 0 1px rgba(255, 255, 255, 0.02);
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    pointer-events: auto; /* Ensure card itself is clickable */
+}
+
+.selection-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: 24px;
+    padding: 2px;
+    background: linear-gradient(135deg, transparent, transparent);
+    mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    mask-composite: xor;
+    -webkit-mask-composite: xor;
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none; /* Allow clicks to pass through */
+}
+
+.selection-card:hover::before {
+    opacity: 1;
+}
+
+.student-card::before {
+    background: var(--accent-gradient);
+}
+
+.teacher-card::before {
+    background: linear-gradient(135deg, var(--orange-accent) 0%, var(--purple-accent) 100%);
+}
+
+.card-glow {
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(0, 212, 170, 0.1) 0%, transparent 70%);
+    opacity: 0;
+    transition: opacity 0.4s ease;
+    pointer-events: none;
+}
+
+.teacher-glow {
+    background: radial-gradient(circle, rgba(249, 115, 22, 0.1) 0%, transparent 70%);
+}
+
+.selection-card:hover .card-glow {
+    opacity: 1;
+}
+
+.selection-card:hover {
+    transform: translateY(-12px) scale(1.02);
+    box-shadow: 
+        0 30px 80px rgba(0, 0, 0, 0.5),
+        0 0 60px var(--shadow-colored),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.student-card:hover {
+    box-shadow: 
+        0 30px 80px rgba(0, 0, 0, 0.5),
+        0 0 60px var(--glow-primary),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.teacher-card:hover {
+    box-shadow: 
+        0 30px 80px rgba(0, 0, 0, 0.5),
+        0 0 60px rgba(249, 115, 22, 0.3),
+        0 0 0 1px rgba(255, 255, 255, 0.05);
+}
+
+.card-content {
+    position: relative;
+    z-index: 1;
+    text-align: center;
+    pointer-events: none; /* Allow clicks to pass through to parent card */
+}
+
+.card-content * {
+    pointer-events: none; /* Ensure all child elements also allow clicks to pass through */
+}
+
+.card-icon {
+    width: 100px;
+    height: 100px;
+    border-radius: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: white;
+    margin: 0 auto 30px;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+}
+
+.student-card .card-icon {
+    background: var(--accent-gradient);
+    box-shadow: 0 15px 40px var(--glow-primary);
+}
+
+.teacher-card .card-icon {
+    background: linear-gradient(135deg, var(--orange-accent) 0%, var(--purple-accent) 100%);
+    box-shadow: 0 15px 40px rgba(249, 115, 22, 0.3);
+}
+
+.selection-card:hover .card-icon {
+    transform: scale(1.1) rotate(5deg);
+}
+
+.card-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 16px;
+    letter-spacing: -0.5px;
+}
+
+.card-description {
+    font-size: 1.1rem;
+    color: var(--text-secondary);
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+.card-arrow {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: var(--secondary-bg);
+    border: 2px solid var(--border-subtle);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto;
+    color: var(--text-secondary);
+    font-size: 1.2rem;
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.student-card:hover .card-arrow {
+    background: var(--accent-gradient);
+    border-color: transparent;
+    color: white;
+    transform: translateX(8px);
+    box-shadow: 0 8px 25px var(--glow-primary);
+}
+
+.teacher-card:hover .card-arrow {
+    background: linear-gradient(135deg, var(--orange-accent) 0%, var(--purple-accent) 100%);
+    border-color: transparent;
+    color: white;
+    transform: translateX(8px);
+    box-shadow: 0 8px 25px rgba(249, 115, 22, 0.3);
+}
+
+/* Login Forms View */
+.login-forms {
+    width: 100%;
+    max-width: 500px;
+    position: relative;
+}
+
+.login-form-container {
+    position: relative;
+    animation: fadeInUp 0.5s ease-out;
+}
+
+.back-btn {
+    position: absolute;
+    top: -60px;
+    left: 0;
+    background: var(--secondary-bg);
+    border: 2px solid var(--border-subtle);
+    color: var(--text-primary);
+    padding: 12px 24px;
+    border-radius: 12px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    z-index: 10;
+}
+
+.back-btn:hover {
+    background: var(--card-bg);
+    border-color: var(--accent-primary);
+    color: var(--accent-primary);
+    transform: translateX(-4px);
+}
+
+/* Side by side login container (for reference, not used in card view) */
 .login-portals {
     display: flex;
     gap: 50px;
@@ -436,6 +659,17 @@ body {
         font-size: 2.8rem;
     }
 
+    .selection-cards {
+        flex-direction: column;
+        gap: 30px;
+        align-items: center;
+    }
+
+    .selection-card {
+        width: 100%;
+        max-width: 450px;
+    }
+
     .login-portals {
         flex-direction: column;
         gap: 35px;
@@ -446,6 +680,12 @@ body {
         width: 100%;
         max-width: 450px;
         padding: 40px 30px;
+    }
+
+    .back-btn {
+        position: relative;
+        top: 0;
+        margin-bottom: 20px;
     }
 }
 
@@ -520,6 +760,14 @@ body {
 
 .header {
     animation: fadeInUp 0.8s ease-out;
+}
+
+.student-card {
+    animation: fadeInLeft 0.8s ease-out 0.2s both;
+}
+
+.teacher-card {
+    animation: fadeInRight 0.8s ease-out 0.4s both;
 }
 
 .student-portal {

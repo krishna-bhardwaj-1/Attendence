@@ -1,12 +1,26 @@
+require('dotenv').config();
 const express=require('express');
+const session = require('express-session');
 const app=express();
 const path=require('path');
 const port=8000;
 const mongoose=require('mongoose');
 app.set('view engine','hbs');
 
-app.use(express.json());
-app.use(express.urlencoded({extended:true}))
+// Session configuration
+app.use(session({
+    secret: 'smart-attendance-secret-key-2024',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        secure: false, // Set to true if using HTTPS
+        maxAge: 30 * 60 * 1000 // 30 minutes
+    }
+}));
+
+const bodyParserLimit = '10mb';
+app.use(express.json({ limit: bodyParserLimit }));
+app.use(express.urlencoded({extended:true, limit: bodyParserLimit}))
 app.use(express.static(path.join(__dirname,'public')));
 
 app.get('/',(req,res,next)=>{

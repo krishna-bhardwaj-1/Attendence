@@ -5,12 +5,13 @@ document.addEventListener('DOMContentLoaded', function() {
     const giveAccessBtn = document.getElementById('giveAccessBtn');
     const studentsGrid = document.getElementById('studentsGrid');
     const presentCountEl = document.getElementById('presentCount');
-    const noStudentsMsg = document.getElementById('noStudentsMsg');
+    const totalStudentsEl = document.getElementById('totalStudents');
     
     let currentSelectedClass = null;
     let attendanceCheckInterval = null;
     let accessGranted = false;
     let teacherId = null;
+    let lastAttendanceCount = 0;
 
     // Get teacherId from page
     teacherId = document.body.getAttribute('data-teacher-id');
@@ -45,6 +46,8 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Check if access was already granted
             checkAccessStatus();
+            // Load attendance and total count when class is selected
+            loadAttendance();
         });
     });
 
@@ -57,12 +60,10 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             
             if (accessGranted) {
-                // Revoke access
                 if (confirm('Do you want to revoke access for this class?')) {
                     await revokeAccess();
                 }
             } else {
-                // Grant access
                 await grantAccess();
             }
         });
@@ -70,6 +71,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     async function grantAccess() {
         try {
+            showNotification('Granting access...', 'info');
+            
             const response = await fetch('/teacher/grant-access', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -126,6 +129,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         } catch (error) {
             console.error('Error revoking access:', error);
+            showNotification('Error revoking access', 'error');
         }
     }
 
@@ -152,19 +156,26 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     function startAttendanceMonitoring() {
+        console.log('Starting attendance monitoring...');
+        
         if (attendanceCheckInterval) {
             clearInterval(attendanceCheckInterval);
         }
         
         loadAttendance();
-        attendanceCheckInterval = setInterval(loadAttendance, 2000);  // Check every 2 seconds
+        // Check every 5 seconds - only update when count changes
+        attendanceCheckInterval = setInterval(loadAttendance, 5000);
     }
 
     function stopAttendanceMonitoring() {
+        console.log('Stopping attendance monitoring...');
+        
         if (attendanceCheckInterval) {
             clearInterval(attendanceCheckInterval);
             attendanceCheckInterval = null;
         }
+        
+        lastAttendanceCount = 0;
         
         // Reset display
         if (studentsGrid) {
@@ -181,15 +192,38 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     async function loadAttendance() {
+        if (!currentSelectedClass) return;
+        
         try {
-            const response = await fetch(`/teacher/get-attendance?subject=${encodeURIComponent(currentSelectedClass.subject)}&time=${encodeURIComponent(currentSelectedClass.time)}&room=${encodeURIComponent(currentSelectedClass.room)}`);
+            const response = await fetch(`/teacher/get-attendance-records?subject=${encodeURIComponent(currentSelectedClass.subject)}&time=${encodeURIComponent(currentSelectedClass.time)}&room=${encodeURIComponent(currentSelectedClass.room)}`);
             
             const data = await response.json();
             
             if (data.success) {
-                displayAttendance(data.attendance);
-                if (presentCountEl) {
-                    presentCountEl.textContent = data.attendance.length;
+                // Update total students count dynamically
+                if (totalStudentsEl && data.totalStudents !== undefined) {
+                    totalStudentsEl.textContent = data.totalStudents;
+                }
+                
+                // Only update if count changed to reduce unnecessary updates
+                if (data.count !== lastAttendanceCount) {
+                    // Check if new student marked attendance
+                    if (data.count > lastAttendanceCount) {
+                        const newStudents = data.count - lastAttendanceCount;
+                        showNotification(`🎓 ${newStudents} new student(s) marked present!`, 'success');
+                    }
+                    
+                    lastAttendanceCount = data.count;
+                    displayAttendance(data.attendance);
+                    
+                    if (presentCountEl) {
+                        presentCountEl.textContent = data.count;
+                    }
+                } else {
+                    // Still update total count even if present count hasn't changed
+                    if (totalStudentsEl && data.totalStudents !== undefined) {
+                        totalStudentsEl.textContent = data.totalStudents;
+                    }
                 }
             }
         } catch (error) {
@@ -205,37 +239,113 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="no-students" style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: #888;">
                     <i class="fas fa-user-clock" style="font-size: 4rem; margin-bottom: 20px; opacity: 0.5;"></i>
                     <p style="font-size: 1.2rem;">Waiting for students to mark attendance...</p>
+                    <p style="font-size: 0.9rem; margin-top: 10px; color: #666;">Students will appear here in real-time as they mark their attendance</p>
                 </div>
             `;
             return;
         }
         
-        studentsGrid.innerHTML = attendance.map(student => `
-            <div class="student-card" style="background: linear-gradient(135deg, #1e293b 0%, #334155 100%); padding: 20px; border-radius: 12px; border: 2px solid #10b981; animation: slideIn 0.3s ease; margin-bottom: 10px;">
+        studentsGrid.innerHTML = attendance.map((student, index) => `
+            <div class="student-card" style="
+                background: linear-gradient(135deg, #1e293b 0%, #334155 100%); 
+                padding: 20px; 
+                border-radius: 12px; 
+                border: 2px solid #10b981; 
+                animation: slideInUp 0.5s ease ${index * 0.1}s both;
+                margin-bottom: 10px;
+                box-shadow: 0 4px 6px rgba(16, 185, 129, 0.1);
+                transition: all 0.3s ease;
+            " onmouseover="this.style.transform='translateY(-5px)'; this.style.boxShadow='0 10px 20px rgba(16, 185, 129, 0.2)';" 
+               onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(16, 185, 129, 0.1)';">
                 <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 12px;">
-                    <div style="width: 50px; height: 50px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <i class="fas fa-user-check" style="color: white; font-size: 1.5rem;"></i>
+                    <div style="
+                        width: 55px; 
+                        height: 55px; 
+                        background: linear-gradient(135deg, #10b981, #059669); 
+                        border-radius: 50%; 
+                        display: flex; 
+                        align-items: center; 
+                        justify-content: center; 
+                        flex-shrink: 0;
+                        box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+                    ">
+                        <i class="fas fa-user-check" style="color: white; font-size: 1.6rem;"></i>
                     </div>
                     <div style="flex: 1; min-width: 0;">
-                        <div style="font-size: 1.1rem; font-weight: 600; color: #fff; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${student.studentName}</div>
-                        <div style="font-size: 0.9rem; color: #94a3b8;">Roll No: ${student.rollNumber}</div>
+                        <div style="
+                            font-size: 1.15rem; 
+                            font-weight: 700; 
+                            color: #fff; 
+                            margin-bottom: 5px; 
+                            white-space: nowrap; 
+                            overflow: hidden; 
+                            text-overflow: ellipsis;
+                        ">${student.studentName}</div>
+                        <div style="font-size: 0.9rem; color: #94a3b8; font-weight: 500;">
+                            <i class="fas fa-id-badge" style="margin-right: 5px;"></i>Roll No: ${student.rollNumber}
+                        </div>
                     </div>
-                    <div style="color: #10b981; font-size: 1.8rem;">
+                    <div style="color: #10b981; font-size: 2rem; animation: bounceIn 0.5s ease;">
                         <i class="fas fa-check-circle"></i>
                     </div>
                 </div>
-                <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 1px solid #334155; font-size: 0.85rem; color: #94a3b8;">
-                    <span><i class="fas fa-clock" style="margin-right: 5px; color: #60a5fa;"></i>${new Date(student.timestamp).toLocaleTimeString()}</span>
-                    <span style="color: #10b981; font-weight: 600;"><i class="fas fa-brain" style="margin-right: 5px;"></i>${(student.confidence * 100).toFixed(1)}%</span>
+                <div style="
+                    display: flex; 
+                    justify-content: space-between; 
+                    align-items: center; 
+                    padding-top: 12px; 
+                    border-top: 1px solid #334155; 
+                    font-size: 0.85rem; 
+                    color: #94a3b8;
+                ">
+                    <span style="display: flex; align-items: center;">
+                        <i class="fas fa-clock" style="margin-right: 6px; color: #60a5fa;"></i>
+                        ${new Date(student.timestamp).toLocaleTimeString('en-US', { 
+                            hour: '2-digit', 
+                            minute: '2-digit', 
+                            second: '2-digit' 
+                        })}
+                    </span>
+                    <span style="
+                        color: #10b981; 
+                        font-weight: 700;
+                        background: rgba(16, 185, 129, 0.1);
+                        padding: 4px 10px;
+                        border-radius: 6px;
+                    ">
+                        <i class="fas fa-brain" style="margin-right: 5px;"></i>${(student.confidence * 100).toFixed(1)}%
+                    </span>
                 </div>
             </div>
         `).join('');
     }
 
+    function playNotificationSound() {
+        // Optional: Play a subtle notification sound
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        } catch (e) {
+            console.log('Audio notification not supported');
+        }
+    }
+
     function showNotification(message, type) {
         const notification = document.createElement('div');
         notification.className = `notification notification-${type}`;
-        notification.textContent = message;
         notification.style.cssText = `
             position: fixed;
             top: 20px;
@@ -243,19 +353,28 @@ document.addEventListener('DOMContentLoaded', function() {
             padding: 15px 25px;
             border-radius: 8px;
             color: white;
-            font-weight: 500;
+            font-weight: 600;
+            font-size: 0.95rem;
             z-index: 10000;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
             animation: slideInRight 0.3s ease;
+            max-width: 350px;
         `;
         
         if (type === 'success') {
-            notification.style.backgroundColor = '#10b981';
+            notification.style.background = 'linear-gradient(135deg, #10b981, #059669)';
         } else if (type === 'error') {
-            notification.style.backgroundColor = '#ef4444';
+            notification.style.background = 'linear-gradient(135deg, #ef4444, #dc2626)';
         } else {
-            notification.style.backgroundColor = '#3b82f6';
+            notification.style.background = 'linear-gradient(135deg, #3b82f6, #2563eb)';
         }
+        
+        notification.innerHTML = `
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}" style="font-size: 1.2rem;"></i>
+                <span>${message}</span>
+            </div>
+        `;
         
         document.body.appendChild(notification);
         

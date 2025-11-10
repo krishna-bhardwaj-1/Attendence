@@ -7,330 +7,391 @@ import logging
 import requests
 import os
 import tempfile
-import time
+import base64
+from datetime import datetime
 
 # Setup logging
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s',
+    stream=sys.stderr
+)
 logger = logging.getLogger(__name__)
 
-def download_image_from_url(image_url):
-    """Download image from URL and save to temporary file"""
-    try:
-        logger.info(f"Downloading registration image from URL: {image_url}")
-        response = requests.get(image_url, timeout=15)
-        response.raise_for_status()
+class FaceRecognitionStream:
+    def __init__(self, registered_image_url, roll_number):
+        self.registered_image_url = registered_image_url
+        self.roll_number = roll_number
+        self.registered_encoding = None
+        self.camera = None
+        self.consecutive_matches = 0
+        self.required_matches = 5
+        self.best_confidence = 0.0
+        self.recognition_complete = False
+        self.success = False
         
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
-        temp_file.write(response.content)
-        temp_file.close()
+    def download_and_encode_registered_image(self):
+        """Download registered image and get face encoding"""
+        try:
+            logger.info(f"Downloading registered image: {self.registered_image_url}")
+            
+            # Download image
+            response = requests.get(self.registered_image_url, timeout=15)
+            response.raise_for_status()
+            
+            # Save to temp file
+            temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
+            temp_file.write(response.content)
+            temp_file.close()
+            
+            # Load and encode face
+            image = face_recognition.load_image_file(temp_file.name)
+            face_encodings = face_recognition.face_encodings(image)
+            
+            # Cleanup
+            try:
+                os.unlink(temp_file.name)
+            except:
+                pass
+            
+            if len(face_encodings) == 0:
+                logger.error("No face found in registered image")
+                return False
+            
+            self.registered_encoding = face_encodings[0]
+            logger.info("✓ Registered face encoding extracted")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error loading registered image: {str(e)}")
+            return False
+    
+    def initialize_camera(self):
+        """Initialize camera"""
+        try:
+            logger.info("Initializing camera...")
+            self.camera = cv2.VideoCapture(0)
+            
+            if not self.camera.isOpened():
+                logger.error("Failed to open camera")
+                return False
+            
+            # Set camera properties
+            self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+            self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+            self.camera.set(cv2.CAP_PROP_FPS, 30)
+            
+            # Warm up camera
+            for _ in range(5):
+                ret, _ = self.camera.read()
+                if not ret:
+                    logger.error("Camera warmup failed")
+                    return False
+            
+            logger.info("✓ Camera initialized")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Camera initialization error: {str(e)}")
+            return False
+    
+    def draw_face_boundary(self, frame, face_location, is_match, confidence):
+        """Draw boundary box around detected face"""
+        top, right, bottom, left = face_location
         
-        logger.info(f"Registration image saved: {temp_file.name}")
-        return temp_file.name
-    except Exception as e:
-        logger.error(f"Error downloading image: {str(e)}")
-        raise
-
-def load_image(image_path):
-    """Load image from URL or local file"""
-    try:
-        if image_path.startswith('http://') or image_path.startswith('https://'):
-            local_path = download_image_from_url(image_path)
-            image = face_recognition.load_image_file(local_path)
-            os.unlink(local_path)
-            return image
+        # Choose color based on match
+        if is_match:
+            color = (0, 255, 0)  # Green for match
+            thickness = 4
+            label_bg = (0, 255, 0)
         else:
-            image = face_recognition.load_image_file(image_path)
-            return image
-    except Exception as e:
-        logger.error(f"Error loading image: {str(e)}")
-        raise
-
-def get_registered_encoding(image_path, roll_number):
-    """Get face encoding from registered student image"""
-    try:
-        logger.info(f"Loading registered image for {roll_number}")
-        image = load_image(image_path)
+            color = (0, 0, 255)  # Red for no match
+            thickness = 3
+            label_bg = (0, 0, 255)
         
-        face_encodings = face_recognition.face_encodings(image)
+        # Draw main rectangle with rounded corners effect
+        cv2.rectangle(frame, (left, top), (right, bottom), color, thickness)
+        
+        # Draw corner markers (L-shaped)
+        marker_length = 30
+        marker_thickness = thickness
+        
+        # Top-left corner
+        cv2.line(frame, (left, top), (left + marker_length, top), color, marker_thickness)
+        cv2.line(frame, (left, top), (left, top + marker_length), color, marker_thickness)
+        
+        # Top-right corner
+        cv2.line(frame, (right, top), (right - marker_length, top), color, marker_thickness)
+        cv2.line(frame, (right, top), (right, top + marker_length), color, marker_thickness)
+        
+        # Bottom-left corner
+        cv2.line(frame, (left, bottom), (left + marker_length, bottom), color, marker_thickness)
+        cv2.line(frame, (left, bottom), (left, bottom - marker_length), color, marker_thickness)
+        
+        # Bottom-right corner
+        cv2.line(frame, (right, bottom), (right - marker_length, bottom), color, marker_thickness)
+        cv2.line(frame, (right, bottom), (right, bottom - marker_length), color, marker_thickness)
+        
+        # Draw confidence label
+        confidence_percent = int(confidence * 100)
+        label = f"{confidence_percent}% {'MATCH' if is_match else 'NO MATCH'}"
+        
+        # Label background
+        label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
+        label_bg_x1 = left
+        label_bg_y1 = top - 35
+        label_bg_x2 = left + label_size[0] + 10
+        label_bg_y2 = top - 5
+        
+        cv2.rectangle(frame, (label_bg_x1, label_bg_y1), (label_bg_x2, label_bg_y2), label_bg, -1)
+        
+        # Label text
+        cv2.putText(frame, label, (left + 5, top - 15), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
+        
+        # Draw match counter if matching
+        if is_match:
+            counter_label = f"Match {self.consecutive_matches}/{self.required_matches}"
+            cv2.putText(frame, counter_label, (left + 5, bottom + 25),
+                       cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        
+        return frame
+    
+    def add_status_overlay(self, frame, status_text, status_color=(255, 255, 255)):
+        """Add status text overlay at top of frame"""
+        height, width = frame.shape[:2]
+        
+        # Semi-transparent overlay bar
+        overlay = frame.copy()
+        cv2.rectangle(overlay, (0, 0), (width, 50), (0, 0, 0), -1)
+        cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
+        
+        # Status text
+        cv2.putText(frame, status_text, (10, 30),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.8, status_color, 2)
+        
+        # Timestamp
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        cv2.putText(frame, timestamp, (width - 120, 30),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
+        
+        return frame
+    
+    def process_frame(self):
+        """Process single frame and return result"""
+        ret, frame = self.camera.read()
+        
+        if not ret:
+            logger.error("Failed to read frame")
+            return None, None
+        
+        # Flip frame horizontally for mirror effect
+        frame = cv2.flip(frame, 1)
+        
+        # Convert to RGB for face_recognition
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        
+        # Resize for faster processing
+        small_frame = cv2.resize(rgb_frame, (0, 0), fx=0.5, fy=0.5)
+        
+        # Detect faces
+        face_locations = face_recognition.face_locations(small_frame, model='hog')
+        
+        if len(face_locations) == 0:
+            # No face detected
+            self.consecutive_matches = 0
+            frame = self.add_status_overlay(frame, "No face detected - Position your face", (0, 165, 255))
+            return frame, {
+                'face_detected': False,
+                'match': False,
+                'confidence': 0.0,
+                'consecutive_matches': 0
+            }
+        
+        # Get face encodings
+        face_encodings = face_recognition.face_encodings(small_frame, face_locations)
         
         if len(face_encodings) == 0:
-            logger.error("No face detected in registered image")
-            return None
-        
-        if len(face_encodings) > 1:
-            logger.warning("Multiple faces in registered image, using first")
-        
-        logger.info("Registered face encoding extracted")
-        return face_encodings[0]
-        
-    except Exception as e:
-        logger.error(f"Error getting registered encoding: {str(e)}")
-        raise
-
-def recognize_face_from_camera(registered_image_path, roll_number, timeout=30):
-    """
-    Capture video from camera and compare with registered image in real-time
-    Shows face boundary box and recognition status
-    """
-    try:
-        logger.info(f"Starting face recognition for {roll_number}")
-        
-        # Get registered face encoding
-        registered_encoding = get_registered_encoding(registered_image_path, roll_number)
-        
-        if registered_encoding is None:
-            return {
-                'success': False,
-                'recognized': False,
-                'message': 'Could not extract face from registered image',
-                'confidence': 0.0
+            self.consecutive_matches = 0
+            frame = self.add_status_overlay(frame, "Face detected but cannot encode", (0, 165, 255))
+            return frame, {
+                'face_detected': True,
+                'match': False,
+                'confidence': 0.0,
+                'consecutive_matches': 0
             }
         
-        logger.info("Initializing camera...")
-        cap = cv2.VideoCapture(0)
+        # Compare with registered face
+        face_encoding = face_encodings[0]
+        face_location = face_locations[0]
         
-        if not cap.isOpened():
-            logger.error("Failed to open camera")
-            return {
-                'success': False,
-                'recognized': False,
-                'message': 'Camera not found or cannot be opened',
-                'confidence': 0.0
-            }
+        # Scale face location back to original size
+        top, right, bottom, left = face_location
+        top *= 2
+        right *= 2
+        bottom *= 2
+        left *= 2
+        scaled_location = (top, right, bottom, left)
         
-        logger.info("Camera opened successfully")
+        # Compare faces
+        matches = face_recognition.compare_faces([self.registered_encoding], face_encoding, tolerance=0.5)
+        face_distance = face_recognition.face_distance([self.registered_encoding], face_encoding)
         
-        # Set camera properties for better quality
-        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1280)
-        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 720)
-        cap.set(cv2.CAP_PROP_FPS, 30)
+        confidence = 1 - face_distance[0]
+        is_match = matches[0] and confidence > 0.45
         
-        # Warm up camera
-        logger.info("Warming up camera...")
-        for i in range(10):
-            cap.read()
-            time.sleep(0.1)
+        # Update best confidence
+        if confidence > self.best_confidence:
+            self.best_confidence = confidence
         
-        start_time = time.time()
-        best_confidence = 0.0
-        best_match = False
-        frame_count = 0
-        consecutive_matches = 0
+        # Update consecutive matches
+        if is_match:
+            self.consecutive_matches += 1
+            status_text = f"Face Matched! ({self.consecutive_matches}/{self.required_matches})"
+            status_color = (0, 255, 0)
+        else:
+            self.consecutive_matches = 0
+            status_text = f"Scanning... {int(confidence * 100)}%"
+            status_color = (0, 0, 255)
         
-        logger.info(f"Starting real-time face detection (timeout: {timeout}s)")
+        # Draw face boundary
+        frame = self.draw_face_boundary(frame, scaled_location, is_match, confidence)
         
-        # Create window
-        window_name = 'Face Recognition - Look at the camera'
-        cv2.namedWindow(window_name, cv2.WINDOW_NORMAL)
-        cv2.resizeWindow(window_name, 1000, 700)
+        # Add status overlay
+        frame = self.add_status_overlay(frame, status_text, status_color)
         
-        while True:
-            elapsed_time = time.time() - start_time
-            
-            if elapsed_time > timeout:
-                logger.info("Timeout reached")
-                cap.release()
-                cv2.destroyAllWindows()
-                
-                if best_match and consecutive_matches >= 3:
-                    logger.info(f"✓ Face recognized with confidence {best_confidence:.2f}")
-                    return {
-                        'success': True,
-                        'recognized': True,
-                        'rollNumber': roll_number,
-                        'message': 'Face recognized successfully',
-                        'confidence': float(best_confidence),
-                        'frames_processed': frame_count
-                    }
-                else:
-                    logger.warning(f"Face not recognized (best: {best_confidence:.2f})")
-                    return {
-                        'success': False,
-                        'recognized': False,
-                        'message': f'Face not recognized. Best confidence: {best_confidence*100:.1f}%',
-                        'confidence': float(best_confidence),
-                        'frames_processed': frame_count
-                    }
-            
-            ret, frame = cap.read()
-            
-            if not ret:
-                logger.error("Failed to read from camera")
-                continue
-            
-            frame_count += 1
-            
-            # Create display frame
-            display_frame = frame.copy()
-            
-            # Resize for faster processing
-            small_frame = cv2.resize(frame, (0, 0), fx=0.25, fy=0.25)
-            rgb_small_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
-            
-            # Detect faces
-            try:
-                face_locations = face_recognition.face_locations(rgb_small_frame, model='hog')
-                face_encodings = face_recognition.face_encodings(rgb_small_frame, face_locations)
-                
-                if len(face_encodings) > 0:
-                    # Scale back face location
-                    top, right, bottom, left = [v * 4 for v in face_locations[0]]
-                    
-                    # Compare faces
-                    matches = face_recognition.compare_faces([registered_encoding], face_encodings[0], tolerance=0.5)
-                    face_distances = face_recognition.face_distance([registered_encoding], face_encodings[0])
-                    
-                    confidence = 1 - face_distances[0]
-                    
-                    if confidence > best_confidence:
-                        best_confidence = confidence
-                    
-                    # Determine match status
-                    if matches[0] and confidence > 0.45:
-                        box_color = (0, 255, 0)  # Green
-                        status = f"MATCH! {confidence*100:.1f}%"
-                        text_color = (0, 255, 0)
-                        consecutive_matches += 1
-                        best_match = True
-                        
-                        logger.info(f"✓ Match! Confidence: {confidence:.2f} (consecutive: {consecutive_matches})")
-                        
-                        # Confirm after 3 consecutive matches
-                        if consecutive_matches >= 3 and frame_count > 15:
-                            cap.release()
-                            cv2.destroyAllWindows()
-                            return {
-                                'success': True,
-                                'recognized': True,
-                                'rollNumber': roll_number,
-                                'message': 'Face recognized successfully',
-                                'confidence': float(confidence),
-                                'frames_processed': frame_count
-                            }
-                    else:
-                        box_color = (0, 165, 255)  # Orange
-                        status = f"Checking... {confidence*100:.1f}%"
-                        text_color = (0, 165, 255)
-                        consecutive_matches = 0
-                    
-                    # Draw thick rectangle
-                    cv2.rectangle(display_frame, (left, top), (right, bottom), box_color, 4)
-                    
-                    # Draw filled rectangle for text background
-                    cv2.rectangle(display_frame, (left, bottom - 50), (right, bottom), box_color, cv2.FILLED)
-                    cv2.putText(display_frame, status, (left + 10, bottom - 15), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 2)
-                    
-                    if frame_count % 10 == 0:
-                        logger.info(f"Frame {frame_count}: Confidence {confidence:.2f}")
-                else:
-                    consecutive_matches = 0
-                    cv2.putText(display_frame, "NO FACE DETECTED", (50, 70), 
-                               cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 255), 3)
-                
-                # Display info overlay
-                time_left = int(timeout - elapsed_time)
-                overlay = display_frame.copy()
-                
-                # Semi-transparent black background for text
-                cv2.rectangle(overlay, (0, 0), (500, 150), (0, 0, 0), -1)
-                cv2.addWeighted(overlay, 0.6, display_frame, 0.4, 0, display_frame)
-                
-                # Display information
-                cv2.putText(display_frame, f"Roll Number: {roll_number}", (15, 35), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-                cv2.putText(display_frame, f"Time Left: {time_left}s", (15, 70), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-                cv2.putText(display_frame, f"Best Match: {best_confidence*100:.1f}%", (15, 105), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-                cv2.putText(display_frame, f"Frames: {frame_count}", (15, 140), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
-                
-                # Instructions at bottom
-                instructions = "Look directly at the camera. Press ESC to cancel."
-                cv2.putText(display_frame, instructions, (15, display_frame.shape[0] - 20), 
-                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
-                
-                # Show frame
-                cv2.imshow(window_name, display_frame)
-                
-                # Check for ESC key
-                key = cv2.waitKey(1) & 0xFF
-                if key == 27:  # ESC
-                    logger.info("User cancelled")
-                    break
-                
-            except Exception as e:
-                logger.warning(f"Error processing frame {frame_count}: {str(e)}")
-                continue
+        # Check if recognition is complete
+        if self.consecutive_matches >= self.required_matches:
+            self.recognition_complete = True
+            self.success = True
+            logger.info(f"✓ RECOGNITION COMPLETE! Confidence: {confidence:.2f}")
         
-        cap.release()
-        cv2.destroyAllWindows()
-        
-        return {
-            'success': False,
-            'recognized': False,
-            'message': 'Recognition cancelled or failed',
-            'confidence': float(best_confidence),
-            'frames_processed': frame_count
+        return frame, {
+            'face_detected': True,
+            'match': is_match,
+            'confidence': float(confidence),
+            'consecutive_matches': self.consecutive_matches,
+            'recognition_complete': self.recognition_complete
         }
-        
-    except Exception as e:
-        logger.error(f"Error in face recognition: {str(e)}", exc_info=True)
+    
+    def frame_to_base64(self, frame):
+        """Convert frame to base64 JPEG"""
+        _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        jpg_as_text = base64.b64encode(buffer).decode('utf-8')
+        return jpg_as_text
+    
+    def run(self):
+        """Main recognition loop"""
         try:
-            cv2.destroyAllWindows()
-        except:
-            pass
-        return {
-            'success': False,
-            'recognized': False,
-            'message': f'Error: {str(e)}',
-            'confidence': 0.0
-        }
+            # Load registered face
+            if not self.download_and_encode_registered_image():
+                return {
+                    'success': False,
+                    'error': 'Failed to load registered image'
+                }
+            
+            # Initialize camera
+            if not self.initialize_camera():
+                return {
+                    'success': False,
+                    'error': 'Failed to initialize camera'
+                }
+            
+            logger.info("Starting face recognition stream...")
+            
+            frame_count = 0
+            max_frames = 600  # 20 seconds at 30fps
+            
+            while frame_count < max_frames and not self.recognition_complete:
+                frame, result = self.process_frame()
+                
+                if frame is None:
+                    continue
+                
+                # Convert frame to base64
+                frame_base64 = self.frame_to_base64(frame)
+                
+                # Output frame and result as JSON
+                output = {
+                    'type': 'frame',
+                    'frame': frame_base64,
+                    'result': result
+                }
+                
+                print(json.dumps(output), flush=True)
+                
+                frame_count += 1
+                
+                # Small delay to control frame rate
+                cv2.waitKey(33)  # ~30fps
+            
+            # Final result
+            if self.recognition_complete and self.success:
+                final_result = {
+                    'type': 'final',
+                    'success': True,
+                    'recognized': True,
+                    'rollNumber': self.roll_number,
+                    'confidence': float(self.best_confidence),
+                    'message': 'Attendance marked successfully'
+                }
+            else:
+                final_result = {
+                    'type': 'final',
+                    'success': False,
+                    'recognized': False,
+                    'rollNumber': self.roll_number,
+                    'confidence': float(self.best_confidence),
+                    'message': f'Face not recognized. Best confidence: {self.best_confidence*100:.1f}%'
+                }
+            
+            print(json.dumps(final_result), flush=True)
+            return final_result
+            
+        except Exception as e:
+            logger.error(f"Error in recognition loop: {str(e)}", exc_info=True)
+            return {
+                'type': 'final',
+                'success': False,
+                'error': str(e)
+            }
+        finally:
+            if self.camera:
+                self.camera.release()
+                logger.info("Camera released")
 
 if __name__ == '__main__':
     try:
-        logger.info(f"Face recognition script started with {len(sys.argv)} arguments")
-        
         if len(sys.argv) < 3:
-            result = {
+            error_result = {
+                'type': 'final',
                 'success': False,
-                'recognized': False,
-                'message': 'Missing arguments: image_path and roll_number required',
-                'confidence': 0.0
+                'error': 'Missing arguments: registered_image_url and roll_number required'
             }
-            print(json.dumps(result))
+            print(json.dumps(error_result), flush=True)
             sys.exit(1)
         
-        image_path = sys.argv[1]
+        registered_image_url = sys.argv[1]
         roll_number = sys.argv[2]
-        timeout = int(sys.argv[3]) if len(sys.argv) > 3 else 30
         
-        logger.info(f"Registered image: {image_path}")
-        logger.info(f"Roll number: {roll_number}")
-        logger.info(f"Timeout: {timeout}s")
+        logger.info(f"Starting face recognition for roll number: {roll_number}")
+        logger.info(f"Registered image: {registered_image_url}")
         
-        result = recognize_face_from_camera(image_path, roll_number, timeout)
+        # Create and run face recognition
+        recognizer = FaceRecognitionStream(registered_image_url, roll_number)
+        result = recognizer.run()
         
-        logger.info(f"Final result: {result}")
-        print(json.dumps(result))
-        
-        if result['success'] and result['recognized']:
+        if result.get('success'):
             sys.exit(0)
         else:
             sys.exit(1)
         
     except Exception as e:
-        logger.error(f"Script error: {str(e)}", exc_info=True)
-        result = {
+        logger.error(f"Fatal error: {str(e)}", exc_info=True)
+        error_result = {
+            'type': 'final',
             'success': False,
-            'recognized': False,
-            'message': f'Script error: {str(e)}',
-            'confidence': 0.0
+            'error': str(e)
         }
-        print(json.dumps(result))
-        try:
-            cv2.destroyAllWindows()
-        except:
-            pass
+        print(json.dumps(error_result), flush=True)
         sys.exit(1)
