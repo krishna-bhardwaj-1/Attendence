@@ -22,7 +22,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
-    console.log('Teacher ID:', teacherId);
 
     // Select class from timetable
     classItems.forEach((classItem) => {
@@ -98,7 +97,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 showNotification('Failed to grant access: ' + result.message, 'error');
             }
         } catch (error) {
-            console.error('Error granting access:', error);
             showNotification('Error granting access', 'error');
         }
     }
@@ -128,7 +126,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 showNotification('✓ Access revoked!', 'info');
             }
         } catch (error) {
-            console.error('Error revoking access:', error);
             showNotification('Error revoking access', 'error');
         }
     }
@@ -151,33 +148,25 @@ document.addEventListener('DOMContentLoaded', function() {
                 stopAttendanceMonitoring();
             }
         } catch (error) {
-            console.error('Error checking access:', error);
+            // Silent error handling
         }
     }
 
     function startAttendanceMonitoring() {
-        console.log('Starting attendance monitoring...');
-        
         if (attendanceCheckInterval) {
             clearInterval(attendanceCheckInterval);
         }
-        
         loadAttendance();
-        // Check every 5 seconds - only update when count changes
         attendanceCheckInterval = setInterval(loadAttendance, 5000);
     }
 
     function stopAttendanceMonitoring() {
-        console.log('Stopping attendance monitoring...');
-        
         if (attendanceCheckInterval) {
             clearInterval(attendanceCheckInterval);
             attendanceCheckInterval = null;
         }
-        
         lastAttendanceCount = 0;
         
-        // Reset display
         if (studentsGrid) {
             studentsGrid.innerHTML = `
                 <div class="no-students" style="grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: #888;">
@@ -205,29 +194,24 @@ document.addEventListener('DOMContentLoaded', function() {
                     totalStudentsEl.textContent = data.totalStudents;
                 }
                 
-                // Only update if count changed to reduce unnecessary updates
                 if (data.count !== lastAttendanceCount) {
-                    // Check if new student marked attendance
                     if (data.count > lastAttendanceCount) {
                         const newStudents = data.count - lastAttendanceCount;
                         showNotification(`🎓 ${newStudents} new student(s) marked present!`, 'success');
                     }
-                    
                     lastAttendanceCount = data.count;
                     displayAttendance(data.attendance);
-                    
                     if (presentCountEl) {
                         presentCountEl.textContent = data.count;
                     }
                 } else {
-                    // Still update total count even if present count hasn't changed
                     if (totalStudentsEl && data.totalStudents !== undefined) {
                         totalStudentsEl.textContent = data.totalStudents;
                     }
                 }
             }
         } catch (error) {
-            console.error('Error loading attendance:', error);
+            // Silent error handling
         }
     }
 
@@ -318,29 +302,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 </div>
             </div>
         `).join('');
-    }
-
-    function playNotificationSound() {
-        // Optional: Play a subtle notification sound
-        try {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            oscillator.frequency.value = 800;
-            oscillator.type = 'sine';
-            
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
-            
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.5);
-        } catch (e) {
-            console.log('Audio notification not supported');
-        }
     }
 
     function showNotification(message, type) {

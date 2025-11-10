@@ -9,55 +9,34 @@
     <link rel="stylesheet" href="/style/login.css">
     <link rel="shortcut icon" href="https://i.pinimg.com/474x/35/10/fd/3510fde9ffb75ed4c651ee5e26988614.jpg" type="image/x-icon">
     <script>
-        // Define function immediately in head so it's available for onclick handlers
         function showLoginForm(type) {
-            console.log('showLoginForm called with type:', type);
             const cardSelection = document.getElementById('cardSelection');
             const loginForms = document.getElementById('loginForms');
             const studentForm = document.getElementById('studentForm');
             const teacherForm = document.getElementById('teacherForm');
 
-            console.log('Elements found:', {
-                cardSelection: !!cardSelection,
-                loginForms: !!loginForms,
-                studentForm: !!studentForm,
-                teacherForm: !!teacherForm
-            });
-
             if (!cardSelection || !loginForms || !studentForm || !teacherForm) {
-                console.error('Required elements not found');
-                alert('Error: Required elements not found. Please refresh the page.');
                 return;
             }
 
-            // Hide card selection
             cardSelection.style.display = 'none';
             cardSelection.style.visibility = 'hidden';
-            
-            // Show login forms container
             loginForms.style.display = 'block';
             loginForms.style.visibility = 'visible';
 
-            // Show appropriate form
             if (type === 'student') {
-                console.log('Showing student form');
                 studentForm.style.display = 'block';
                 studentForm.style.visibility = 'visible';
                 teacherForm.style.display = 'none';
                 teacherForm.style.visibility = 'hidden';
             } else if (type === 'teacher') {
-                console.log('Showing teacher form');
                 studentForm.style.display = 'none';
                 studentForm.style.visibility = 'hidden';
                 teacherForm.style.display = 'block';
                 teacherForm.style.visibility = 'visible';
-                // Reset teacher forms - will be handled by body script override
             }
-            
-            console.log('Form display updated');
         }
         
-        // Define showCardSelection function
         function showCardSelection() {
             const cardSelection = document.getElementById('cardSelection');
             const loginForms = document.getElementById('loginForms');
@@ -65,31 +44,23 @@
             const teacherForm = document.getElementById('teacherForm');
 
             if (!cardSelection || !loginForms || !studentForm || !teacherForm) {
-                console.error('Required elements not found for showCardSelection');
                 return;
             }
 
-            // Hide forms
             studentForm.style.display = 'none';
             teacherForm.style.display = 'none';
             loginForms.style.display = 'none';
             loginForms.style.visibility = 'hidden';
-
-            // Show card selection
             cardSelection.style.display = 'block';
             cardSelection.style.visibility = 'visible';
             
-            // Reset teacher forms if function exists
             if (typeof resetTeacherForms === 'function') {
                 resetTeacherForms();
             }
         }
         
-        // Make available globally
         window.showLoginForm = showLoginForm;
         window.showCardSelection = showCardSelection;
-        console.log('showLoginForm defined in head:', typeof window.showLoginForm);
-        console.log('showCardSelection defined in head:', typeof window.showCardSelection);
     </script>
 </head>
 <body>
@@ -266,23 +237,18 @@
     <script>
         let teacherCredentials = {};
 
-        // showLoginForm is already defined in head, so we just update it to include resetTeacherForms
-        // Override the head version to include resetTeacherForms functionality
         const originalShowLoginForm = window.showLoginForm;
         window.showLoginForm = function(type) {
             originalShowLoginForm(type);
-            // If teacher form, reset teacher forms
             if (type === 'teacher' && typeof resetTeacherForms === 'function') {
                 resetTeacherForms();
             }
         };
 
-        // showCardSelection is already defined in head, just update it if needed
         if (window.showCardSelection) {
             const originalShowCardSelection = window.showCardSelection;
             window.showCardSelection = function() {
                 originalShowCardSelection();
-                // Reset teacher forms if function exists
                 if (typeof resetTeacherForms === 'function') {
                     resetTeacherForms();
                 }
@@ -292,64 +258,33 @@
         function resetTeacherForms() {
             const loginForm = document.getElementById('teacherLoginForm');
             const otpForm = document.getElementById('teacherOTPForm');
-            
             if (loginForm) loginForm.style.display = 'block';
             if (otpForm) otpForm.style.display = 'none';
-            
             teacherCredentials = {};
         }
 
-        // Test function availability
-        console.log('showLoginForm function available:', typeof window.showLoginForm);
-        console.log('showCardSelection function available:', typeof window.showCardSelection);
-
-        // Handle teacher login form submission
         document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOM Content Loaded - Setting up event listeners');
-            
-            // Add click event listeners to cards
             const studentCard = document.querySelector('.student-card');
             const teacherCard = document.querySelector('.teacher-card');
             
-            console.log('Student card found:', !!studentCard);
-            console.log('Teacher card found:', !!teacherCard);
-            
             if (studentCard) {
                 studentCard.style.cursor = 'pointer';
-                // Remove any existing listeners and add new one
                 studentCard.onclick = function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Student card clicked - onclick handler');
                     showLoginForm('student');
                     return false;
                 };
-                // Also add event listener as backup
-                studentCard.addEventListener('click', function(e) {
-                    console.log('Student card clicked - event listener');
-                    showLoginForm('student');
-                }, true);
-            } else {
-                console.error('Student card not found');
             }
             
             if (teacherCard) {
                 teacherCard.style.cursor = 'pointer';
-                // Remove any existing listeners and add new one
                 teacherCard.onclick = function(e) {
                     e.preventDefault();
                     e.stopPropagation();
-                    console.log('Teacher card clicked - onclick handler');
                     showLoginForm('teacher');
                     return false;
                 };
-                // Also add event listener as backup
-                teacherCard.addEventListener('click', function(e) {
-                    console.log('Teacher card clicked - event listener');
-                    showLoginForm('teacher');
-                }, true);
-            } else {
-                console.error('Teacher card not found');
             }
             
             const teacherLoginForm = document.getElementById('teacherLoginForm');
@@ -388,36 +323,24 @@
                     }
                     
                     try {
-                        console.log('Sending request to /teacher/portal with:', { teacherId, password: '***' });
-                        
                         const response = await fetch('/teacher/portal', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({ teacherId, password }),
-                            credentials: 'same-origin' // Include cookies/session
+                            credentials: 'same-origin'
                         });
                         
-                        console.log('Response status:', response.status);
-                        console.log('Response headers:', response.headers);
-                        
-                        // Check if response is JSON
                         const contentType = response.headers.get('content-type');
-                        console.log('Content-Type:', contentType);
                         
                         if (!contentType || !contentType.includes('application/json')) {
                             const text = await response.text();
-                            console.error('Non-JSON response:', text);
-                            console.error('Response status:', response.status);
-                            
-                            // Check if it's a redirect
                             if (response.status === 302 || response.status === 301 || response.redirected) {
                                 alert('Server redirected. Please check your credentials and try again.');
                             } else {
                                 alert('Server error: ' + (text.substring(0, 100) || 'Invalid response'));
                             }
-                            
                             if (submitBtn) {
                                 submitBtn.disabled = false;
                                 submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Access Dashboard';
@@ -426,12 +349,8 @@
                         }
                         
                         const data = await response.json();
-                        console.log('Response data:', data);
                         
                         if (data.success) {
-                            console.log('OTP sent successfully, showing OTP form');
-                            
-                            // Hide login form, show OTP form
                             if (teacherLoginForm) {
                                 teacherLoginForm.style.display = 'none';
                                 teacherLoginForm.style.visibility = 'hidden';
@@ -439,34 +358,24 @@
                             if (teacherOTPForm) {
                                 teacherOTPForm.style.display = 'block';
                                 teacherOTPForm.style.visibility = 'visible';
-                                console.log('OTP form is now visible');
-                            } else {
-                                console.error('teacherOTPForm element not found!');
                             }
                             
-                            // Display masked email
                             const emailDisplay = document.getElementById('otpEmailDisplay');
                             if (emailDisplay && data.email) {
                                 emailDisplay.textContent = `OTP sent to ${data.email}`;
                             }
                             
-                            // Focus on OTP input and add input validation
                             setTimeout(() => {
                                 const otpInput = document.getElementById('teacherOTP');
                                 if (otpInput) {
                                     otpInput.focus();
-                                    otpInput.value = ''; // Clear any previous value
-                                    
-                                    // Only allow numbers in OTP input
+                                    otpInput.value = '';
                                     otpInput.addEventListener('input', function(e) {
                                         e.target.value = e.target.value.replace(/[^0-9]/g, '');
-                                    }, { once: false });
-                                } else {
-                                    console.error('OTP input not found!');
+                                    });
                                 }
                             }, 100);
                             
-                            // Clear URL parameters
                             window.history.replaceState({}, document.title, window.location.pathname);
                         } else {
                             alert(data.message || 'Failed to send OTP. Please try again.');
@@ -476,8 +385,6 @@
                             }
                         }
                     } catch (error) {
-                        console.error('Error in form submission:', error);
-                        console.error('Error stack:', error.stack);
                         alert('An error occurred: ' + error.message);
                         if (submitBtn) {
                             submitBtn.disabled = false;
@@ -486,14 +393,10 @@
                     }
                     
                     return false;
-                }, true); // Use capture phase
-            } else {
-                console.error('teacherLoginForm not found!');
+                }, true);
             }
             
-            // Handle OTP form submission
             if (teacherOTPForm) {
-                // Prevent default form submission
                 teacherOTPForm.onsubmit = function(e) {
                     e.preventDefault();
                     return false;
@@ -504,44 +407,34 @@
                     e.stopPropagation();
                     e.stopImmediatePropagation();
                     
-                    console.log('OTP form submitted');
-                    
                     const otpInput = document.getElementById('teacherOTP');
                     const otp = otpInput ? otpInput.value.trim() : '';
                     const verifyBtn = document.getElementById('teacher-verify-btn');
                     
-                    // Validate OTP (only numbers, 6 digits)
                     if (!/^\d{6}$/.test(otp)) {
                         alert('Please enter a valid 6-digit OTP (numbers only)');
                         if (otpInput) otpInput.focus();
                         return false;
                     }
                     
-                    // Disable button
                     if (verifyBtn) {
                         verifyBtn.disabled = true;
                         verifyBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Verifying...';
                     }
                     
                     try {
-                        console.log('Sending OTP verification request');
-                        
                         const response = await fetch('/teacher/verify-otp', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
                             },
                             body: JSON.stringify({ otp }),
-                            credentials: 'same-origin' // Include cookies/session
+                            credentials: 'same-origin'
                         });
-                        
-                        console.log('OTP verification response status:', response.status);
                         
                         const contentType = response.headers.get('content-type');
                         
                         if (contentType && contentType.includes('text/html')) {
-                            // Server rendered the portal page - replace current page
-                            console.log('Server returned HTML, replacing page');
                             const html = await response.text();
                             document.open();
                             document.write(html);
@@ -550,16 +443,11 @@
                         }
                         
                         const data = await response.json();
-                        console.log('OTP verification response:', data);
                         
                         if (data.success) {
-                            // OTP verified - redirect to portal
-                            console.log('OTP verified successfully, redirecting to portal');
                             if (verifyBtn) {
                                 verifyBtn.innerHTML = '<i class="fas fa-check-circle"></i> Verified! Redirecting...';
                             }
-                            
-                            // Small delay to show success message, then redirect
                             setTimeout(() => {
                                 window.location.href = '/teacher/portal';
                             }, 500);
@@ -575,7 +463,6 @@
                             }
                         }
                     } catch (error) {
-                        console.error('Error in OTP verification:', error);
                         alert('An error occurred: ' + error.message);
                         if (verifyBtn) {
                             verifyBtn.disabled = false;
@@ -585,38 +472,22 @@
                     
                     return false;
                 }, true);
-            } else {
-                console.error('teacherOTPForm not found!');
             }
             
-            // Check for URL parameters and auto-fill/submit form (after event listeners are set up)
             const urlParams = new URLSearchParams(window.location.search);
             const teacherId = urlParams.get('teacherId');
             const password = urlParams.get('password');
             
             if (teacherId && password) {
-                console.log('URL parameters found:', { teacherId, password: '***' });
-                // Show teacher form
                 showLoginForm('teacher');
-                
-                // Wait a bit for form to be visible, then pre-fill
                 setTimeout(() => {
                     const teacherIdInput = document.getElementById('teacherId');
                     const passwordInput = document.getElementById('teacherPassword');
-                    
-                    if (teacherIdInput) {
-                        teacherIdInput.value = decodeURIComponent(teacherId);
-                    }
-                    if (passwordInput) {
-                        passwordInput.value = decodeURIComponent(password);
-                    }
-                    
-                    // Auto-submit after form is filled and event listeners are attached
+                    if (teacherIdInput) teacherIdInput.value = decodeURIComponent(teacherId);
+                    if (passwordInput) passwordInput.value = decodeURIComponent(password);
                     setTimeout(() => {
                         const teacherLoginForm = document.getElementById('teacherLoginForm');
                         if (teacherLoginForm) {
-                            console.log('Auto-submitting teacher login form');
-                            // Create and dispatch submit event
                             const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
                             teacherLoginForm.dispatchEvent(submitEvent);
                         }
@@ -625,7 +496,6 @@
             }
         });
 
-        // Resend OTP function
         async function resendOTP() {
             if (!teacherCredentials.teacherId || !teacherCredentials.password) {
                 alert('Please login again');
@@ -657,7 +527,6 @@
                     alert(data.message || 'Failed to resend OTP. Please try again.');
                 }
             } catch (error) {
-                console.error('Error:', error);
                 alert('An error occurred. Please try again.');
             } finally {
                 resendBtn.disabled = false;

@@ -57,15 +57,11 @@ const sampleTimetable = {
     }
 };
 
-// Step 1: Verify credentials and send OTP
 module.exports.postPortal = async (req, res, next) => {
     try {
         const { teacherId, password } = req.body;
         
-        console.log('Teacher login attempt:', { teacherId });
-        
         if (!teacherId || !password) {
-            console.log('Missing credentials');
             return res.json({
                 success: false,
                 message: 'Please enter both teacher ID and password'
@@ -78,49 +74,33 @@ module.exports.postPortal = async (req, res, next) => {
         });
         
         if (!teacher) {
-            console.log('Teacher not found or wrong password');
             return res.json({
                 success: false,
                 message: 'Invalid credentials. Please check your teacher ID and password.'
             });
         }
         
-        console.log('Teacher found:', teacher.name);
-        
-        // Normalize email address (fix double @ symbols if present)
         let teacherEmail = teacher.email;
         if (teacherEmail && teacherEmail.includes('@@')) {
-            console.warn(`[Teacher Login] Detected double @ in email: ${teacherEmail}`);
             teacherEmail = teacherEmail.replace(/@@+/g, '@');
-            console.log(`[Teacher Login] Normalized email to: ${teacherEmail}`);
         }
         
-        // Store teacher info in session for OTP verification (use normalized email)
         if (req.session) {
             req.session.teacherId = teacher._id;
             req.session.teacherIdNum = teacher.teacherId;
             req.session.teacherName = teacher.name;
-            req.session.teacherEmail = teacherEmail; // Store normalized email
+            req.session.teacherEmail = teacherEmail;
         }
         
-        // Send OTP to teacher's email
-        console.log(`[Teacher Login] Attempting to send OTP to: ${teacherEmail}`);
         const otpResult = await sendOTP(teacherEmail, teacher.name);
         
-        console.log(`[Teacher Login] OTP send result:`, {
-            success: otpResult.success,
-            message: otpResult.message
-        });
-        
         if (!otpResult.success) {
-            console.error(`[Teacher Login] Failed to send OTP:`, otpResult.message);
             return res.json({
                 success: false,
                 message: otpResult.message || 'Failed to send OTP. Please try again.'
             });
         }
         
-        // Mask email for display (show only first 3 chars and domain)
         const emailParts = teacher.email.split('@');
         const maskedEmail = emailParts[0].substring(0, 3) + '***@' + emailParts[1];
         
@@ -139,7 +119,6 @@ module.exports.postPortal = async (req, res, next) => {
     }
 };
 
-// Step 2: Verify OTP and login
 module.exports.verifyOTP = async (req, res, next) => {
     try {
         const { otp } = req.body;
@@ -151,7 +130,6 @@ module.exports.verifyOTP = async (req, res, next) => {
             });
         }
         
-        // Get teacher email from session
         const teacherEmail = req.session?.teacherEmail;
         
         if (!teacherEmail) {
@@ -161,7 +139,6 @@ module.exports.verifyOTP = async (req, res, next) => {
             });
         }
         
-        // Verify OTP
         const verificationResult = verifyOTP(teacherEmail, otp);
         
         if (!verificationResult.success) {
@@ -171,12 +148,10 @@ module.exports.verifyOTP = async (req, res, next) => {
             });
         }
         
-        // OTP verified - mark as logged in
         if (req.session) {
             req.session.teacherLoggedIn = true;
         }
         
-        // Return success - frontend will redirect to /teacher/portal
         res.json({
             success: true,
             message: 'OTP verified successfully'
@@ -191,24 +166,19 @@ module.exports.verifyOTP = async (req, res, next) => {
     }
 };
 
-// GET portal route - render portal for logged-in teachers
 module.exports.getPortal = async (req, res, next) => {
     try {
-        // Check if teacher is logged in via session
         if (!req.session || !req.session.teacherLoggedIn || !req.session.teacherId) {
             return res.redirect('/');
         }
         
-        // Get teacher from database
         const teacher = await Teacher.findById(req.session.teacherId);
         
         if (!teacher) {
-            // Clear invalid session
             req.session.destroy();
             return res.redirect('/');
         }
         
-        // Render teacher portal
         res.render('../views/teacher/portal', { 
             teacher, 
             timetable: sampleTimetable 
@@ -231,8 +201,6 @@ module.exports.grantAccess = async (req, res, next) => {
             });
         }
 
-        console.log(`[Access Control] ${accessGranted ? 'Granting' : 'Revoking'} access for ${subject}`);
-
         let classAccess = await ClassAccess.findOne({ subject, time, room });
 
         if (classAccess) {
@@ -247,7 +215,6 @@ module.exports.grantAccess = async (req, res, next) => {
             }
             
             await classAccess.save();
-            console.log(`[Access Control] Updated existing record`);
         } else {
             classAccess = await ClassAccess.create({
                 subject,
@@ -258,7 +225,6 @@ module.exports.grantAccess = async (req, res, next) => {
                 grantedAt: accessGranted ? new Date() : null,
                 revokedAt: accessGranted ? null : new Date()
             });
-            console.log(`[Access Control] Created new record`);
         }
 
         res.json({
@@ -293,7 +259,6 @@ module.exports.checkAccessStatus = async (req, res) => {
     }
 };
 
-// NEW FUNCTION - Get attendance records for teacher portal display
 module.exports.getAttendanceRecords = async (req, res) => {
     try {
         const { subject, time, room } = req.query;
@@ -307,7 +272,6 @@ module.exports.getAttendanceRecords = async (req, res) => {
             });
         }
 
-        // Get today's attendance FOR THIS SPECIFIC CLASS
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         
@@ -318,13 +282,7 @@ module.exports.getAttendanceRecords = async (req, res) => {
             timestamp: { $gte: today }
         }).sort({ timestamp: -1 }).lean();
 
-        // Get total student count from database
         const totalStudents = await Student.countDocuments();
-
-        // Only log when there are records to reduce console spam
-        if (attendance.length > 0) {
-            console.log(`[Attendance] ${subject}: ${attendance.length} students present`);
-        }
 
         res.json({
             success: true,
@@ -345,10 +303,8 @@ module.exports.getAttendanceRecords = async (req, res) => {
     }
 };
 
-// Face recognition endpoint (for manual face recognition if needed)
 module.exports.getAttendance = async (req, res, next) => {
     try {
-        // Get rollNumber safely
         let rollNumber = null;
         
         if (req.query && req.query.rollNumber) {
@@ -360,21 +316,15 @@ module.exports.getAttendance = async (req, res, next) => {
         }
         
         if (!rollNumber) {
-            console.log('[Face Recognition] ⚠️ No roll number provided - ignoring request');
             return res.status(200).json({ 
                 success: false, 
                 message: 'Roll number required' 
             });
         }
 
-        console.log(`\n${'='.repeat(60)}`);
-        console.log(`[Face Recognition] Starting for roll number: ${rollNumber}`);
-        console.log(`${'='.repeat(60)}\n`);
-
         const student = await Student.findOne({ rollNumber: parseInt(rollNumber) });
         
         if (!student) {
-            console.error('[Face Recognition] Student not found');
             return res.status(404).send(`
                 <script>
                     alert('Student not found');
@@ -384,7 +334,6 @@ module.exports.getAttendance = async (req, res, next) => {
         }
 
         if (!student.photo) {
-            console.error('[Face Recognition] No photo registered');
             return res.status(400).send(`
                 <script>
                     alert('No photo registered. Please upload photo first.');
@@ -392,12 +341,8 @@ module.exports.getAttendance = async (req, res, next) => {
                 </script>
             `);
         }
-
-        console.log(`[Face Recognition] Student: ${student.name}`);
-        console.log(`[Face Recognition] Photo URL: ${student.photo}`);
         
         if (!student.photo.includes('cloudinary.com')) {
-            console.error('[Face Recognition] Invalid photo URL');
             return res.status(400).send(`
                 <script>
                     alert('Invalid photo URL. Please re-upload.');
@@ -415,7 +360,6 @@ module.exports.getAttendance = async (req, res, next) => {
         });
 
         if (existingAttendance) {
-            console.log('[Face Recognition] ⚠️ Already marked present');
             return res.status(200).send(`
                 <script>
                     alert('Already marked present today!');
@@ -458,7 +402,6 @@ module.exports.getAttendance = async (req, res, next) => {
             }
 
             if (!results || results.length === 0) {
-                console.error('[Face Recognition] ✗ No output');
                 return res.status(500).send(`
                     <script>
                         alert('No response from face recognition');
@@ -482,7 +425,6 @@ module.exports.getAttendance = async (req, res, next) => {
                 }
 
                 if (!jsonResult) {
-                    console.error('[Face Recognition] ✗ Could not parse JSON');
                     return res.status(500).send(`
                         <script>
                             alert('Failed to parse result');
@@ -492,11 +434,10 @@ module.exports.getAttendance = async (req, res, next) => {
                 }
 
                 const result = jsonResult;
-                console.log(`[Face Recognition] Result: ${result.recognized ? 'SUCCESS' : 'FAILED'}`);
 
                 if (result.success && result.recognized) {
                     try {
-                        const attendanceRecord = await MarkPresent.create({
+                        await MarkPresent.create({
                             rollNumber: parseInt(rollNumber),
                             studentName: student.name,
                             timestamp: new Date(),
@@ -505,8 +446,6 @@ module.exports.getAttendance = async (req, res, next) => {
                             status: 'present',
                             framesProcessed: result.frames_processed || 0
                         });
-
-                        console.log(`[Face Recognition] ✓ Saved to database`);
                         
                         return res.status(200).send(`
                             <script>
@@ -516,7 +455,7 @@ module.exports.getAttendance = async (req, res, next) => {
                         `);
                         
                     } catch (dbError) {
-                        console.error('[Face Recognition] ✗ Database error:', dbError.message);
+                        console.error('Database error:', dbError.message);
                         return res.status(500).send(`
                             <script>
                                 alert('Failed to save attendance');
@@ -526,8 +465,6 @@ module.exports.getAttendance = async (req, res, next) => {
                     }
                     
                 } else {
-                    console.log(`[Face Recognition] ✗ Not recognized`);
-                    
                     return res.status(200).send(`
                         <script>
                             alert('✗ Face Not Recognized\\n\\nTry again with better lighting');
@@ -536,7 +473,7 @@ module.exports.getAttendance = async (req, res, next) => {
                     `);
                 }
             } catch (parseError) {
-                console.error('[Face Recognition] ✗ Parse error:', parseError.message);
+                console.error('Parse error:', parseError.message);
                 return res.status(500).send(`
                     <script>
                         alert('Failed to process result');
@@ -547,7 +484,7 @@ module.exports.getAttendance = async (req, res, next) => {
         });
 
     } catch (error) {
-        console.error('[Face Recognition] ✗ Controller Error:', error.message);
+        console.error('Controller error:', error.message);
         return res.status(500).send(`
             <script>
                 alert('Server error');

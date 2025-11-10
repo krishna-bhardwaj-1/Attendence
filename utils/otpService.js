@@ -5,11 +5,11 @@ const otpStore = new Map();
 
 // Email transporter configuration
 // FIXED: Removed duplicate @ symbol
-const emailUser = 'krishna.bhardwaj_cs23@gla.ac.in';  // ✓ Single @ symbol
+const emailUser = 'krishna.bhardwaj_cs23@gla.ac.in';
 const emailPass = 'klhn oegi twmg uqbf';
 
 // Check if email credentials are configured
-if (!emailUser || !emailPass || emailUser === 'krishna.bhardwaj_cs23@gla.ac.in' || emailPass === 'klhn oegi twmg uqbf') {
+if (!emailUser || !emailPass) {
     console.warn('[OTP] ⚠️ Email credentials not configured. Please set EMAIL_USER and EMAIL_PASS in .env file');
     console.warn('[OTP] For Gmail: Use App Password (not regular password)');
 }
@@ -40,10 +40,7 @@ function normalizeEmail(email) {
     // Basic validation - should have exactly one @
     const atCount = (normalized.match(/@/g) || []).length;
     if (atCount !== 1) {
-        console.warn(`[OTP] Invalid email format detected: ${email} (${atCount} @ symbols)`);
-        // Try to fix common issues
         if (atCount === 0 && normalized.includes('_')) {
-            // Might be missing @, try to add it before domain
             const parts = normalized.split('_');
             if (parts.length > 1) {
                 const lastPart = parts[parts.length - 1];
@@ -52,7 +49,6 @@ function normalizeEmail(email) {
                 }
             }
         } else if (atCount > 1) {
-            // Multiple @ symbols - keep only the first one
             const firstAt = normalized.indexOf('@');
             normalized = normalized.substring(0, firstAt + 1) + normalized.substring(firstAt + 1).replace(/@/g, '');
         }
@@ -67,13 +63,7 @@ async function sendOTP(email, teacherName) {
         // Normalize email address first
         const normalizedEmail = normalizeEmail(email);
         
-        if (normalizedEmail !== email) {
-            console.warn(`[OTP] Email normalized from "${email}" to "${normalizedEmail}"`);
-        }
-        
-        // Validate normalized email
         if (!normalizedEmail || !normalizedEmail.includes('@') || normalizedEmail.split('@').length !== 2) {
-            console.error(`[OTP] Invalid email address after normalization: ${normalizedEmail}`);
             return {
                 success: false,
                 message: `Invalid email address format: ${email}. Please contact administrator to update your email.`
@@ -142,21 +132,11 @@ async function sendOTP(email, teacherName) {
             `
         };
 
-        // Send email
-        console.log(`[OTP] Attempting to send email to ${normalizedEmail}...`);
-        const info = await transporter.sendMail(mailOptions);
-        console.log(`[OTP] ✓ OTP sent to ${normalizedEmail}`);
-        console.log(`[OTP] Message ID: ${info.messageId}`);
-        
+        await transporter.sendMail(mailOptions);
         return { success: true, message: 'OTP sent successfully' };
     } catch (error) {
-        console.error('[OTP] ✗ Error sending email:');
-        console.error('[OTP] Error code:', error.code);
-        console.error('[OTP] Error message:', error.message);
-        console.error('[OTP] Error response:', error.response);
-        console.error('[OTP] Full error:', error);
+        console.error('[OTP] Error sending email:', error.message);
         
-        // Provide specific error messages
         let errorMessage = 'Failed to send OTP. Please try again.';
         
         if (error.code === 'EAUTH') {

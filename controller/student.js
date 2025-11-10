@@ -112,28 +112,19 @@ module.exports.postPortal = async (req, res, next) => {
     try {
         const { rollNumber, name } = req.body;
         
-        console.log('='.repeat(60));
-        console.log('Login attempt:', { rollNumber, name });
-        console.log('Type of rollNumber:', typeof rollNumber);
-        
         if (!rollNumber || !name) {
-            console.log('Missing credentials');
             return res.render('../views/student/login', {
                 error: 'Please enter both roll number and name'
             });
         }
         
-        // Try multiple query variations
-        console.log('Trying query 1: rollNumber as Number...');
         let student = await Student.findOne({ rollNumber: parseInt(rollNumber) });
         
         if (!student) {
-            console.log('Query 1 failed. Trying query 2: rollNumber as String...');
             student = await Student.findOne({ rollNumber: String(rollNumber) });
         }
         
         if (!student) {
-            console.log('Query 2 failed. Trying query 3: Any student with this roll number...');
             student = await Student.findOne({ 
                 $or: [
                     { rollNumber: parseInt(rollNumber) },
@@ -142,44 +133,21 @@ module.exports.postPortal = async (req, res, next) => {
             });
         }
         
-        // Debug: Show all students to compare
-        console.log('Fetching all students for comparison...');
-        const allStudents = await Student.find({}).limit(5);
-        console.log('Sample students in DB:');
-        allStudents.forEach(s => {
-            console.log(`  - Roll: ${s.rollNumber} (${typeof s.rollNumber}), Name: ${s.name}`);
-        });
-        
         if (!student) {
-            console.log('✗ Student not found after all attempts');
             return res.render('../views/index', {
                 error: `Student with roll number ${rollNumber} not found. Please check your credentials.`
             });
         }
         
-        console.log('✓ Student found:', student.name);
-        console.log('Student data:', {
-            rollNumber: student.rollNumber,
-            name: student.name,
-            email: student.email
-        });
-        
-        // Check name match (case-insensitive)
         const nameTrimmed = name.trim();
         const studentNameTrimmed = student.name.trim();
         
         if (studentNameTrimmed.toLowerCase() !== nameTrimmed.toLowerCase()) {
-            console.log('✗ Name mismatch:');
-            console.log(`  Expected: "${studentNameTrimmed}"`);
-            console.log(`  Received: "${nameTrimmed}"`);
             return res.render('../views/student/login', {
                 error: `Name does not match. Expected: "${studentNameTrimmed}"`
             });
         }
         
-        console.log('✓ Name matched successfully');
-        
-        // Store in session if available
         if (req.session) {
             req.session.studentId = student._id;
             req.session.rollNumber = student.rollNumber;
@@ -187,38 +155,32 @@ module.exports.postPortal = async (req, res, next) => {
             req.session.studentLoggedIn = true;
         }
 
-        console.log('✓ Redirecting to portal...');        
         res.render('../views/student/portal', { 
             student, 
             timetable: sampleTimetable 
         });
         
     } catch (error) {
-        console.error('✗ Error in postPortal:', error);
+        console.error('Error in postPortal:', error);
         res.render('../views/student/login', {
             error: 'An error occurred. Please try again.'
         });
     }
 }
 
-// GET portal route - render portal for logged-in students
 module.exports.getPortal = async (req, res, next) => {
     try {
-        // Check if student is logged in via session
         if (!req.session || !req.session.studentLoggedIn || !req.session.studentId) {
             return res.redirect('/');
         }
         
-        // Get student from database
         const student = await Student.findById(req.session.studentId);
         
         if (!student) {
-            // Clear invalid session
             req.session.destroy();
             return res.redirect('/');
         }
         
-        // Render student portal
         res.render('../views/student/portal', { 
             student, 
             timetable: sampleTimetable 
