@@ -7,8 +7,8 @@ class FaceRecognitionHandler {
         this.stream = null;
         this.isRecognizing = false;
         this.matchCount = 0;
-        this.requiredMatches = 2; // Reduced to 2 for faster recognition (was 3)
-        this.recognitionTimeout = 30; // seconds - increased slightly
+        this.requiredMatches = 2;
+        this.recognitionTimeout = 30;
         this.intervalId = null;
         this.timeoutId = null;
     }

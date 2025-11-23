@@ -10,7 +10,6 @@ import tempfile
 import base64
 from datetime import datetime
 
-# Setup logging
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(levelname)s - %(message)s',
@@ -30,25 +29,28 @@ class FaceRecognitionStream:
         self.recognition_complete = False
         self.success = False
         
+        # Frame processing optimization - AGGRESSIVE
+        self.frame_skip = 3  # Process every 4th frame (skip 3 frames)
+        self.frame_counter = 0
+        self.last_result = None
+        
     def download_and_encode_registered_image(self):
-        """Download registered image and get face encoding"""
+        """Download registered image and get face encoding - optimized"""
         try:
             logger.info(f"Downloading registered image: {self.registered_image_url}")
             
-            # Download image
-            response = requests.get(self.registered_image_url, timeout=15)
+            response = requests.get(self.registered_image_url, timeout=10)
             response.raise_for_status()
             
-            # Save to temp file
             temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.jpg')
             temp_file.write(response.content)
             temp_file.close()
             
-            # Load and encode face
             image = face_recognition.load_image_file(temp_file.name)
-            face_encodings = face_recognition.face_encodings(image)
             
-            # Cleanup
+            # Use num_jitters=1 for faster encoding (still accurate)
+            face_encodings = face_recognition.face_encodings(image, num_jitters=1)
+            
             try:
                 os.unlink(temp_file.name)
             except:
@@ -67,7 +69,7 @@ class FaceRecognitionStream:
             return False
     
     def initialize_camera(self):
-        """Initialize camera"""
+        """Initialize camera with optimal settings"""
         try:
             logger.info("Initializing camera...")
             self.camera = cv2.VideoCapture(0)
@@ -76,13 +78,14 @@ class FaceRecognitionStream:
                 logger.error("Failed to open camera")
                 return False
             
-            # Set camera properties
+            # Optimize camera settings for performance
             self.camera.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
             self.camera.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
             self.camera.set(cv2.CAP_PROP_FPS, 30)
+            self.camera.set(cv2.CAP_PROP_BUFFERSIZE, 1)  # Reduce buffer for lower latency
             
             # Warm up camera
-            for _ in range(5):
+            for _ in range(3):
                 ret, _ = self.camera.read()
                 if not ret:
                     logger.error("Camera warmup failed")
@@ -99,57 +102,47 @@ class FaceRecognitionStream:
         """Draw boundary box around detected face"""
         top, right, bottom, left = face_location
         
-        # Choose color based on match
         if is_match:
-            color = (0, 255, 0)  # Green for match
+            color = (0, 255, 0)
             thickness = 4
             label_bg = (0, 255, 0)
         else:
-            color = (0, 0, 255)  # Red for no match
+            color = (0, 0, 255)
             thickness = 3
             label_bg = (0, 0, 255)
         
-        # Draw main rectangle with rounded corners effect
+        # Draw main rectangle
         cv2.rectangle(frame, (left, top), (right, bottom), color, thickness)
         
-        # Draw corner markers (L-shaped)
+        # Draw corner markers
         marker_length = 30
-        marker_thickness = thickness
         
-        # Top-left corner
-        cv2.line(frame, (left, top), (left + marker_length, top), color, marker_thickness)
-        cv2.line(frame, (left, top), (left, top + marker_length), color, marker_thickness)
+        # Top-left
+        cv2.line(frame, (left, top), (left + marker_length, top), color, thickness)
+        cv2.line(frame, (left, top), (left, top + marker_length), color, thickness)
         
-        # Top-right corner
-        cv2.line(frame, (right, top), (right - marker_length, top), color, marker_thickness)
-        cv2.line(frame, (right, top), (right, top + marker_length), color, marker_thickness)
+        # Top-right
+        cv2.line(frame, (right, top), (right - marker_length, top), color, thickness)
+        cv2.line(frame, (right, top), (right, top + marker_length), color, thickness)
         
-        # Bottom-left corner
-        cv2.line(frame, (left, bottom), (left + marker_length, bottom), color, marker_thickness)
-        cv2.line(frame, (left, bottom), (left, bottom - marker_length), color, marker_thickness)
+        # Bottom-left
+        cv2.line(frame, (left, bottom), (left + marker_length, bottom), color, thickness)
+        cv2.line(frame, (left, bottom), (left, bottom - marker_length), color, thickness)
         
-        # Bottom-right corner
-        cv2.line(frame, (right, bottom), (right - marker_length, bottom), color, marker_thickness)
-        cv2.line(frame, (right, bottom), (right, bottom - marker_length), color, marker_thickness)
+        # Bottom-right
+        cv2.line(frame, (right, bottom), (right - marker_length, bottom), color, thickness)
+        cv2.line(frame, (right, bottom), (right, bottom - marker_length), color, thickness)
         
-        # Draw confidence label
+        # Confidence label
         confidence_percent = int(confidence * 100)
         label = f"{confidence_percent}% {'MATCH' if is_match else 'NO MATCH'}"
         
-        # Label background
         label_size = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2)[0]
-        label_bg_x1 = left
-        label_bg_y1 = top - 35
-        label_bg_x2 = left + label_size[0] + 10
-        label_bg_y2 = top - 5
-        
-        cv2.rectangle(frame, (label_bg_x1, label_bg_y1), (label_bg_x2, label_bg_y2), label_bg, -1)
-        
-        # Label text
+        cv2.rectangle(frame, (left, top - 35), (left + label_size[0] + 10, top - 5), label_bg, -1)
         cv2.putText(frame, label, (left + 5, top - 15), 
                     cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 2)
         
-        # Draw match counter if matching
+        # Match counter
         if is_match:
             counter_label = f"Match {self.consecutive_matches}/{self.required_matches}"
             cv2.putText(frame, counter_label, (left + 5, bottom + 25),
@@ -158,19 +151,16 @@ class FaceRecognitionStream:
         return frame
     
     def add_status_overlay(self, frame, status_text, status_color=(255, 255, 255)):
-        """Add status text overlay at top of frame"""
+        """Add status text overlay"""
         height, width = frame.shape[:2]
         
-        # Semi-transparent overlay bar
         overlay = frame.copy()
         cv2.rectangle(overlay, (0, 0), (width, 50), (0, 0, 0), -1)
         cv2.addWeighted(overlay, 0.7, frame, 0.3, 0, frame)
         
-        # Status text
         cv2.putText(frame, status_text, (10, 30),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.8, status_color, 2)
         
-        # Timestamp
         timestamp = datetime.now().strftime("%H:%M:%S")
         cv2.putText(frame, timestamp, (width - 120, 30),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (200, 200, 200), 1)
@@ -178,73 +168,117 @@ class FaceRecognitionStream:
         return frame
     
     def process_frame(self):
-        """Process single frame and return result"""
+        """Process frame with optimization - skip frames for performance"""
         ret, frame = self.camera.read()
         
         if not ret:
             logger.error("Failed to read frame")
             return None, None
         
-        # Flip frame horizontally for mirror effect
         frame = cv2.flip(frame, 1)
         
-        # Convert to RGB for face_recognition
+        # Frame skip logic - process every 4th frame for smoother video
+        self.frame_counter += 1
+        should_process = (self.frame_counter % 4 == 0)
+        
+        if not should_process and self.last_result is not None:
+            # Use cached result and draw on current frame
+            if self.last_result.get('face_detected') and 'face_location' in self.last_result:
+                frame = self.draw_face_boundary(
+                    frame,
+                    self.last_result['face_location'],
+                    self.last_result['match'],
+                    self.last_result['confidence']
+                )
+                status_text = self.last_result.get('status_text', 'Processing...')
+                status_color = self.last_result.get('status_color', (255, 255, 255))
+                frame = self.add_status_overlay(frame, status_text, status_color)
+            else:
+                # No face in cache, show waiting message
+                frame = self.add_status_overlay(frame, "Initializing...", (255, 255, 255))
+            
+            return frame, self.last_result
+        
+        # Actually process this frame
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         
-        # Resize for faster processing
-        small_frame = cv2.resize(rgb_frame, (0, 0), fx=0.5, fy=0.5)
+        # Resize for faster processing - 25% size = 16x faster
+        small_frame = cv2.resize(rgb_frame, (0, 0), fx=0.25, fy=0.25)
         
-        # Detect faces
-        face_locations = face_recognition.face_locations(small_frame, model='hog')
+        # Use HOG model (much faster than CNN)
+        face_locations = face_recognition.face_locations(
+            small_frame, 
+            model='hog',
+            number_of_times_to_upsample=0  # 0 = faster, 1 = more accurate
+        )
         
         if len(face_locations) == 0:
-            # No face detected
             self.consecutive_matches = 0
             frame = self.add_status_overlay(frame, "No face detected - Position your face", (0, 165, 255))
-            return frame, {
+            
+            result = {
                 'face_detected': False,
                 'match': False,
                 'confidence': 0.0,
-                'consecutive_matches': 0
+                'consecutive_matches': 0,
+                'status_text': "No face detected - Position your face",
+                'status_color': (0, 165, 255)
             }
+            self.last_result = result
+            return frame, result
         
-        # Get face encodings
-        face_encodings = face_recognition.face_encodings(small_frame, face_locations)
+        # Get first face encoding only
+        face_encodings = face_recognition.face_encodings(
+            small_frame, 
+            face_locations,
+            num_jitters=1  # Reduce jitters for speed
+        )
         
         if len(face_encodings) == 0:
             self.consecutive_matches = 0
             frame = self.add_status_overlay(frame, "Face detected but cannot encode", (0, 165, 255))
-            return frame, {
+            
+            result = {
                 'face_detected': True,
                 'match': False,
                 'confidence': 0.0,
-                'consecutive_matches': 0
+                'consecutive_matches': 0,
+                'status_text': "Face detected but cannot encode",
+                'status_color': (0, 165, 255)
             }
+            self.last_result = result
+            return frame, result
         
         # Compare with registered face
         face_encoding = face_encodings[0]
         face_location = face_locations[0]
         
-        # Scale face location back to original size
+        # Scale back to original size (4x since we used 0.25)
         top, right, bottom, left = face_location
-        top *= 2
-        right *= 2
-        bottom *= 2
-        left *= 2
+        top *= 4
+        right *= 4
+        bottom *= 4
+        left *= 4
         scaled_location = (top, right, bottom, left)
         
-        # Compare faces
-        matches = face_recognition.compare_faces([self.registered_encoding], face_encoding, tolerance=0.5)
-        face_distance = face_recognition.face_distance([self.registered_encoding], face_encoding)
+        # Fast comparison with tolerance
+        matches = face_recognition.compare_faces(
+            [self.registered_encoding], 
+            face_encoding, 
+            tolerance=0.5
+        )
+        face_distance = face_recognition.face_distance(
+            [self.registered_encoding], 
+            face_encoding
+        )
         
         confidence = 1 - face_distance[0]
         is_match = matches[0] and confidence > 0.45
         
-        # Update best confidence
         if confidence > self.best_confidence:
             self.best_confidence = confidence
         
-        # Update consecutive matches
+        # Update matches
         if is_match:
             self.consecutive_matches += 1
             status_text = f"Face Matched! ({self.consecutive_matches}/{self.required_matches})"
@@ -254,43 +288,50 @@ class FaceRecognitionStream:
             status_text = f"Scanning... {int(confidence * 100)}%"
             status_color = (0, 0, 255)
         
-        # Draw face boundary
+        # Draw visualization
         frame = self.draw_face_boundary(frame, scaled_location, is_match, confidence)
-        
-        # Add status overlay
         frame = self.add_status_overlay(frame, status_text, status_color)
         
-        # Check if recognition is complete
+        # Check completion
         if self.consecutive_matches >= self.required_matches:
             self.recognition_complete = True
             self.success = True
             logger.info(f"✓ RECOGNITION COMPLETE! Confidence: {confidence:.2f}")
         
-        return frame, {
+        result = {
             'face_detected': True,
             'match': is_match,
             'confidence': float(confidence),
             'consecutive_matches': self.consecutive_matches,
-            'recognition_complete': self.recognition_complete
+            'recognition_complete': self.recognition_complete,
+            'face_location': scaled_location,
+            'status_text': status_text,
+            'status_color': status_color
         }
+        
+        # Cache result
+        self.last_result = result
+        
+        return frame, result
     
     def frame_to_base64(self, frame):
-        """Convert frame to base64 JPEG"""
-        _, buffer = cv2.imencode('.jpg', frame, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        """Convert frame to base64 with aggressive compression"""
+        _, buffer = cv2.imencode('.jpg', frame, [
+            cv2.IMWRITE_JPEG_QUALITY, 60,  # Lower quality for faster encoding
+            cv2.IMWRITE_JPEG_OPTIMIZE, 1
+        ])
         jpg_as_text = base64.b64encode(buffer).decode('utf-8')
         return jpg_as_text
     
     def run(self):
-        """Main recognition loop"""
+        """Main recognition loop - optimized"""
         try:
-            # Load registered face
             if not self.download_and_encode_registered_image():
                 return {
                     'success': False,
                     'error': 'Failed to load registered image'
                 }
             
-            # Initialize camera
             if not self.initialize_camera():
                 return {
                     'success': False,
@@ -308,10 +349,8 @@ class FaceRecognitionStream:
                 if frame is None:
                     continue
                 
-                # Convert frame to base64
                 frame_base64 = self.frame_to_base64(frame)
                 
-                # Output frame and result as JSON
                 output = {
                     'type': 'frame',
                     'frame': frame_base64,
@@ -322,8 +361,8 @@ class FaceRecognitionStream:
                 
                 frame_count += 1
                 
-                # Small delay to control frame rate
-                cv2.waitKey(33)  # ~30fps
+                # No delay - let it run as fast as possible
+                # cv2.waitKey(1)  # Minimal or no delay
             
             # Final result
             if self.recognition_complete and self.success:
@@ -377,7 +416,6 @@ if __name__ == '__main__':
         logger.info(f"Starting face recognition for roll number: {roll_number}")
         logger.info(f"Registered image: {registered_image_url}")
         
-        # Create and run face recognition
         recognizer = FaceRecognitionStream(registered_image_url, roll_number)
         result = recognizer.run()
         

@@ -10,8 +10,7 @@ const emailPass = 'klhn oegi twmg uqbf';
 
 // Check if email credentials are configured
 if (!emailUser || !emailPass) {
-    console.warn('[OTP] ⚠️ Email credentials not configured. Please set EMAIL_USER and EMAIL_PASS in .env file');
-    console.warn('[OTP] For Gmail: Use App Password (not regular password)');
+    console.warn('Email credentials not configured');
 }
 
 const transporter = nodemailer.createTransport({
@@ -71,13 +70,13 @@ async function sendOTP(email, teacherName) {
         }
         
         // Check if email credentials are configured
-        if (!emailUser || !emailPass || emailUser === 'your-email@gmail.com' || emailPass === 'your-app-password') {
-            console.error('[OTP] Email credentials not configured');
-            return { 
-                success: false, 
-                message: 'Email service not configured. Please contact administrator or check OTP_SETUP.md for setup instructions.' 
-            };
-        }
+        // if (!emailUser || !emailPass || emailUser === 'your-email@gmail.com' || emailPass === 'your-app-password') {
+        //     console.error('[OTP] Email credentials not configured');
+        //     return { 
+        //         success: false, 
+        //         message: 'Email service not configured. Please contact administrator or check OTP_SETUP.md for setup instructions.' 
+        //     };
+        // }
 
         const otp = generateOTP();
         const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
