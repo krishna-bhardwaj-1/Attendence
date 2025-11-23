@@ -1,0 +1,4 @@
+data/
+ml/__pycache__/
+ml/*.pyc
+*.wt
