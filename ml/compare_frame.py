@@ -75,11 +75,11 @@ def compare_frame(registered_url, frame_data):
         # Convert to RGB
         rgb_frame = cv2.cvtColor(small_frame, cv2.COLOR_BGR2RGB)
         
-        # Use HOG model (faster than CNN) with minimal upsampling
+        # Use HOG 
         face_locations = face_recognition.face_locations(
             rgb_frame, 
             model='hog',
-            number_of_times_to_upsample=0  # 0 for speed, 1 for better accuracy
+            number_of_times_to_upsample=0  #1 acc
         )
         
         if not face_locations:
@@ -91,7 +91,7 @@ def compare_frame(registered_url, frame_data):
         # Get encoding with minimal jitters
         face_encodings = face_recognition.face_encodings(
             rgb_frame, 
-            [face_location],  # Process only first face
+            [face_location], 
             num_jitters=1
         )
         
@@ -100,7 +100,6 @@ def compare_frame(registered_url, frame_data):
         
         face_encoding = face_encodings[0]
         
-        # Scale face location back to original size
         top, right, bottom, left = face_location
         top *= 2
         right *= 2

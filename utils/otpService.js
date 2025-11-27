@@ -1,16 +1,15 @@
 const nodemailer = require('nodemailer');
-
-// In-memory OTP storage (can be moved to Redis/database for production)
 const otpStore = new Map();
 
-// Email transporter configuration
-// FIXED: Removed duplicate @ symbol
 const emailUser = 'krishna.bhardwaj_cs23@gla.ac.in';
-const emailPass = 'klhn oegi twmg uqbf';
+const emailPass = 'jhhg zemz ihvo vfwl';
 
-// Check if email credentials are configured
 if (!emailUser || !emailPass) {
-    console.warn('Email credentials not configured');
+    console.warn('⚠️ Email credentials not configured');
+} else {
+    console.log('✅ Email credentials loaded');
+    console.log('📧 Email User:', emailUser);
+    console.log('🔑 Password length:', emailPass.length, 'characters');
 }
 
 const transporter = nodemailer.createTransport({
@@ -21,22 +20,23 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// Generate 6-digit OTP
+transporter.verify(function(error, success) {
+    if (error) {
+        console.error('❌ SMTP Connection Failed:', error.message);
+    } else {
+        console.log('✅ SMTP Server is ready to send emails');
+    }
+});
+
 function generateOTP() {
     return Math.floor(100000 + Math.random() * 900000).toString();
 }
 
-// Normalize email address - remove double @ symbols and clean up
 function normalizeEmail(email) {
     if (!email) return email;
-    
-    // Remove any double @ symbols
     let normalized = email.replace(/@@+/g, '@');
-    
-    // Remove any leading/trailing whitespace
     normalized = normalized.trim();
     
-    // Basic validation - should have exactly one @
     const atCount = (normalized.match(/@/g) || []).length;
     if (atCount !== 1) {
         if (atCount === 0 && normalized.includes('_')) {
@@ -56,10 +56,8 @@ function normalizeEmail(email) {
     return normalized;
 }
 
-// Send OTP to email
 async function sendOTP(email, teacherName) {
     try {
-        // Normalize email address first
         const normalizedEmail = normalizeEmail(email);
         
         if (!normalizedEmail || !normalizedEmail.includes('@') || normalizedEmail.split('@').length !== 2) {
@@ -68,27 +66,16 @@ async function sendOTP(email, teacherName) {
                 message: `Invalid email address format: ${email}. Please contact administrator to update your email.`
             };
         }
-        
-        // Check if email credentials are configured
-        // if (!emailUser || !emailPass || emailUser === 'your-email@gmail.com' || emailPass === 'your-app-password') {
-        //     console.error('[OTP] Email credentials not configured');
-        //     return { 
-        //         success: false, 
-        //         message: 'Email service not configured. Please contact administrator or check OTP_SETUP.md for setup instructions.' 
-        //     };
-        // }
 
         const otp = generateOTP();
-        const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes expiry
+        const expiresAt = Date.now() + 10 * 60 * 1000;
 
-        // Store OTP with expiry (use normalized email as key)
         otpStore.set(normalizedEmail, {
             otp,
             expiresAt,
             attempts: 0
         });
 
-        // Email content
         const mailOptions = {
             from: emailUser,
             to: normalizedEmail,
@@ -138,12 +125,10 @@ async function sendOTP(email, teacherName) {
         
         let errorMessage = 'Failed to send OTP. Please try again.';
         
-        if (error.code === 'EAUTH') {
-            errorMessage = 'Email authentication failed. Please check EMAIL_USER and EMAIL_PASS in .env file. For Gmail, use App Password (not regular password).';
+        if (error.code === 'EAUTH' || error.responseCode === 535) {
+            errorMessage = 'Gmail authentication failed. Please generate a new App Password from https://myaccount.google.com/apppasswords';
         } else if (error.code === 'ECONNECTION') {
-            errorMessage = 'Could not connect to email server. Please check your internet connection.';
-        } else if (error.responseCode === 535 || error.code === 535) {
-            errorMessage = 'Email credentials invalid. Please verify EMAIL_USER and EMAIL_PASS in .env file. For Gmail, ensure you\'re using an App Password.';
+            errorMessage = 'Could not connect to Gmail servers. Please check your internet connection.';
         } else if (error.message) {
             errorMessage = `Failed to send OTP: ${error.message}`;
         }
@@ -152,9 +137,7 @@ async function sendOTP(email, teacherName) {
     }
 }
 
-// Verify OTP
 function verifyOTP(email, otp) {
-    // Normalize email before verification
     const normalizedEmail = normalizeEmail(email);
     const stored = otpStore.get(normalizedEmail);
     
@@ -162,30 +145,25 @@ function verifyOTP(email, otp) {
         return { success: false, message: 'OTP not found. Please request a new OTP.' };
     }
 
-    // Check expiry
     if (Date.now() > stored.expiresAt) {
         otpStore.delete(normalizedEmail);
         return { success: false, message: 'OTP has expired. Please request a new OTP.' };
     }
 
-    // Check attempts (max 5 attempts)
     if (stored.attempts >= 5) {
         otpStore.delete(normalizedEmail);
         return { success: false, message: 'Too many failed attempts. Please request a new OTP.' };
     }
 
-    // Verify OTP
     if (stored.otp !== otp) {
         stored.attempts++;
         return { success: false, message: 'Invalid OTP. Please try again.' };
     }
 
-    // OTP verified successfully - remove from store
     otpStore.delete(normalizedEmail);
     return { success: true, message: 'OTP verified successfully' };
 }
 
-// Clean up expired OTPs (run periodically)
 function cleanupExpiredOTPs() {
     const now = Date.now();
     for (const [email, data] of otpStore.entries()) {
@@ -195,7 +173,6 @@ function cleanupExpiredOTPs() {
     }
 }
 
-// Run cleanup every 5 minutes
 setInterval(cleanupExpiredOTPs, 5 * 60 * 1000);
 
 module.exports = {

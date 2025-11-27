@@ -35,7 +35,6 @@ class FaceRecognitionStream:
         self.last_result = None
         
     def download_and_encode_registered_image(self):
-        """Download registered image and get face encoding - optimized"""
         try:
             logger.info(f"Downloading registered image: {self.registered_image_url}")
             
