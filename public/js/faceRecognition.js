@@ -11,6 +11,7 @@ class FaceRecognitionHandler {
         this.recognitionTimeout = 30;
         this.intervalId = null;
         this.timeoutId = null;
+        this.canvasInitialized = false;
     }
 
     initialize(videoElement, canvasElement) {
@@ -81,12 +82,18 @@ class FaceRecognitionHandler {
         }
 
         this.isRecognizing = false;
+        this.canvasInitialized = false;
     }
 
     captureFrame() {
         const ctx = this.canvas.getContext('2d');
-        this.canvas.width = this.video.videoWidth;
-        this.canvas.height = this.video.videoHeight;
+        
+        // Set canvas dimensions only once to prevent zoom in/out
+        if (!this.canvasInitialized || this.canvas.width !== this.video.videoWidth || this.canvas.height !== this.video.videoHeight) {
+            this.canvas.width = this.video.videoWidth;
+            this.canvas.height = this.video.videoHeight;
+            this.canvasInitialized = true;
+        }
         
         ctx.drawImage(this.video, 0, 0);
         

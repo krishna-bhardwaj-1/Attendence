@@ -112,9 +112,9 @@
                 </div>
             </div>
             <div class="user-actions">
-                <a href="/" class="action-btn logout-btn">
+                <button onclick="handleLogout()" class="action-btn logout-btn">
                     <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
+                </button>
             </div>
         </div>
     </header>
@@ -517,6 +517,35 @@
                 }
             } catch (error) {
                 console.error('Error loading recent attendance:', error);
+            }
+        }
+
+        // Logout handler
+        async function handleLogout() {
+            if (!confirm('Are you sure you want to logout?')) {
+                return;
+            }
+
+            try {
+                const response = await fetch('/student/logout', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'same-origin'
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // Redirect to home page
+                    window.location.href = data.redirectUrl;
+                } else {
+                    alert('Logout failed: ' + (data.message || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Logout error:', error);
+                alert('An error occurred during logout.');
             }
         }
     </script>

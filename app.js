@@ -3,18 +3,27 @@ const express=require('express');
 const session = require('express-session');
 const app=express();
 const path=require('path');
-const port=8000;
+const port = process.env.PORT || 8000;
 const mongoose=require('mongoose');
 app.set('view engine','hbs');
 
+// Prevent caching to avoid back button showing protected pages
+app.use((req, res, next) => {
+    res.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+    res.header('Pragma', 'no-cache');
+    res.header('Expires', '0');
+    next();
+});
+
 // Session configuration
 app.use(session({
-    secret: 'smart-attendance-secret-key-2024',
+    secret: process.env.SESSION_SECRET || 'smart-attendance-secret-key-2024',
     resave: false,
     saveUninitialized: false,
     cookie: {
         secure: false, // Set to true if using HTTPS
-        maxAge: 30 * 60 * 1000 // 30 minutes
+        maxAge: 30 * 60 * 1000, // 30 minutes
+        httpOnly: true
     }
 }));
 
@@ -35,12 +44,14 @@ app.use('/teacher',teacherRouter);
 
 app.use('/api/teacher', teacherRouter);
 
-mongoose.connect('mongodb://127.0.0.1:27017/SmartAttendence').then(()=>{
+// Connect to MongoDB Atlas using .env
+mongoose.connect(process.env.MONGODB_URI).then(()=>{
     app.listen(port,()=>{
-        console.log('db connected successfully');
-        console.log(`Server Connected Successfully at ${port}`);
+        console.log('✅ MongoDB Atlas connected successfully');
+        console.log(`🚀 Server Connected Successfully at ${port}`);
     })
 })
 .catch((err)=>{
-    console.log(err);
+    console.error('❌ Database connection error:', err);
+    process.exit(1);
 })

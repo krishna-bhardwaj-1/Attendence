@@ -22,26 +22,37 @@ module.exports.postSignUp = async (req, res, next) => {
         // Check if file was uploaded
         if (!req.file) {
             console.error('[Signup] No file uploaded');
-            return res.status(400).send(`
-                <script>
-                    alert('Please upload a photo');
-                    window.history.back();
-                </script>
-            `);
+            return res.status(400).json({
+                success: false,
+                message: 'Please upload a photo'
+            });
         }
 
         // Verify Cloudinary URL is valid
         if (!req.file.path || !req.file.path.includes('cloudinary.com')) {
             console.error('[Signup] Invalid Cloudinary URL:', req.file.path);
-            return res.status(500).send(`
-                <script>
-                    alert('Image upload failed. Please try again.');
-                    window.history.back();
-                </script>
-            `);
+            return res.status(500).json({
+                success: false,
+                message: 'Image upload failed. Please try again.'
+            });
         }
 
         console.log('[Signup] Photo uploaded successfully:', req.file.path);
+        
+        // Check if student already exists
+        const existingStudent = await Student.findOne({ 
+            $or: [
+                { rollNumber: parseInt(rollNumber) },
+                { email: email }
+            ]
+        });
+        
+        if (existingStudent) {
+            return res.status(400).json({
+                success: false,
+                message: 'Student with this roll number or email already exists'
+            });
+        }
         
         await Student.create({
             photo: req.file.path,
@@ -56,16 +67,28 @@ module.exports.postSignUp = async (req, res, next) => {
         });
         
         console.log('[Signup] Student registered successfully');
-        res.redirect('/');
+        
+        return res.status(200).json({
+            success: true,
+            message: 'Registration successful! Redirecting to login...',
+            redirectUrl: '/'
+        });
         
     } catch (err) {
         console.error('[Signup] Error:', err);
-        res.status(500).send(`
-            <script>
-                alert('Registration failed: ${err.message}');
-                window.history.back();
-            </script>
-        `);
+        
+        // Handle duplicate key error
+        if (err.code === 11000) {
+            return res.status(400).json({
+                success: false,
+                message: 'Student with this roll number or email already exists'
+            });
+        }
+        
+        return res.status(500).json({
+            success: false,
+            message: `Registration failed: ${err.message}`
+        });
     }
 }
 
@@ -112,9 +135,11 @@ module.exports.postPortal = async (req, res, next) => {
     try {
         const { rollNumber, name } = req.body;
         
+        // Validate input
         if (!rollNumber || !name) {
-            return res.render('../views/student/login', {
-                error: 'Please enter both roll number and name'
+            return res.status(400).json({
+                success: false,
+                message: 'Please enter both roll number and name'
             });
         }
         
@@ -133,21 +158,26 @@ module.exports.postPortal = async (req, res, next) => {
             });
         }
         
+        // If student not found, return error
         if (!student) {
-            return res.render('../views/index', {
-                error: `Student with roll number ${rollNumber} not found. Please check your credentials.`
+            return res.status(401).json({
+                success: false,
+                message: 'Your given information is wrong. Check it again.'
             });
         }
         
+        // Validate name
         const nameTrimmed = name.trim();
         const studentNameTrimmed = student.name.trim();
         
         if (studentNameTrimmed.toLowerCase() !== nameTrimmed.toLowerCase()) {
-            return res.render('../views/student/login', {
-                error: `Name does not match. Expected: "${studentNameTrimmed}"`
+            return res.status(401).json({
+                success: false,
+                message: 'Your given information is wrong. Check it again.'
             });
         }
         
+        // Credentials are correct - set session
         if (req.session) {
             req.session.studentId = student._id;
             req.session.rollNumber = student.rollNumber;
@@ -155,15 +185,17 @@ module.exports.postPortal = async (req, res, next) => {
             req.session.studentLoggedIn = true;
         }
 
-        res.render('../views/student/portal', { 
-            student, 
-            timetable: sampleTimetable 
+        res.json({
+            success: true,
+            message: 'Login successful',
+            redirectUrl: '/student/portal'
         });
         
     } catch (error) {
         console.error('Error in postPortal:', error);
-        res.render('../views/student/login', {
-            error: 'An error occurred. Please try again.'
+        res.status(500).json({
+            success: false,
+            message: 'An error occurred. Please try again.'
         });
     }
 }
@@ -239,10 +271,10 @@ module.exports.recognizeFrame = async (req, res) => {
             return res.json({ faceDetected: false });
         }
 
-        // Call Python with frame data - Add timeout to prevent hanging
+        // Call Python with frame data - lightweight real-time detection
         const python = spawn(PYTHON_PATH, [
             '-W', 'ignore::UserWarning',
-            path.join(__dirname, '../ml/compare_frame.py'),
+            path.join(__dirname, '../ml/liveness_comparison.py'),
             student.photo,
             frame
         ]);
@@ -250,25 +282,24 @@ module.exports.recognizeFrame = async (req, res) => {
         let result = '';
         let hasResponded = false;
         
-        // Set timeout for Python process (12 seconds max - increased for slower processing)
+        // Set timeout for Python process (5 seconds max - lightweight detection is fast)
         const processTimeout = setTimeout(() => {
             if (!hasResponded) {
                 hasResponded = true;
                 python.kill('SIGKILL');
-                console.error('[Frame Recognition] Python process timeout - killing process');
-                res.json({ faceDetected: false, error: 'Process timeout' });
+                console.error('[Real-time Detection] Python process timeout - killing process');
+                res.json({ matched: false, error: 'Process timeout' });
             }
-        }, 12000);
+        }, 5000);
 
         python.stdout.on('data', (data) => {
             result += data.toString();
         });
 
-        // Suppress stderr warnings (only log real errors)
+        // Suppress warnings
         python.stderr.on('data', (data) => {
             const errorMsg = data.toString();
-            // Only log if it's not the pkg_resources warning
-            if (!errorMsg.includes('pkg_resources is deprecated')) {
+            if (!errorMsg.includes('pkg_resources') && !errorMsg.includes('UserWarning')) {
                 console.error('[Python stderr]', errorMsg);
             }
         });
@@ -278,31 +309,37 @@ module.exports.recognizeFrame = async (req, res) => {
             hasResponded = true;
             clearTimeout(processTimeout);
             
-            // Log non-zero exit codes
             if (code !== 0) {
-                console.error(`[Frame Recognition] Python exited with code ${code}`);
-                console.error(`[Frame Recognition] Output: ${result.substring(0, 200)}`);
+                console.error(`[Real-time Detection] Python exited with code ${code}`);
             }
             
             try {
                 const rawOutput = result.trim().split('\n').pop();
                 if (!rawOutput) {
-                    console.error('[Frame Recognition] No output from Python script');
-                    res.json({ faceDetected: false, error: 'No output' });
+                    console.error('[Real-time Detection] No output from Python script');
+                    res.json({ matched: false, error: 'No output' });
                     return;
                 }
                 const parsed = JSON.parse(rawOutput);
-                // Only log successful matches to reduce console spam
+                
+                // Log results
                 if (parsed.matched) {
-                    console.log('[Frame Recognition] Match:', parsed.confidence.toFixed(3));
-                } else if (parsed.error) {
-                    console.error('[Frame Recognition] Python error:', parsed.error);
+                    console.log('[Real-time Detection] ✓ Match detected', {
+                        confidence: (parsed.confidence * 100).toFixed(1) + '%',
+                        is_live: parsed.is_live
+                    });
+                } else {
+                    console.log('[Real-time Detection] ✗ No match', {
+                        confidence: (parsed.confidence * 100).toFixed(1) + '%',
+                        is_live: parsed.is_live,
+                        reason: parsed.message
+                    });
                 }
+                
                 res.json(parsed);
             } catch (e) {
-                console.error('[Frame Recognition Parse Error]', e.message);
-                console.error('[Frame Recognition] Raw output:', result.substring(0, 500));
-                res.json({ faceDetected: false, error: 'Parse error' });
+                console.error('[Real-time Detection Parse Error]', e.message);
+                res.json({ matched: false, error: 'Parse error' });
             }
         });
 
@@ -310,15 +347,13 @@ module.exports.recognizeFrame = async (req, res) => {
             if (hasResponded) return;
             hasResponded = true;
             clearTimeout(processTimeout);
-            console.error('[Frame Recognition] Python spawn error:', error.message);
-            console.error('[Frame Recognition] Python path:', PYTHON_PATH);
-            console.error('[Frame Recognition] Student photo URL:', student.photo);
-            res.json({ faceDetected: false, error: 'Process error: ' + error.message });
+            console.error('[Real-time Detection] Python spawn error:', error.message);
+            res.json({ matched: false, error: 'Process error: ' + error.message });
         });
 
     } catch (error) {
-        console.error('Frame recognition error:', error);
-        res.json({ faceDetected: false });
+        console.error('Real-time detection error:', error);
+        res.json({ matched: false });
     }
 };
 
@@ -409,6 +444,36 @@ module.exports.getRecentAttendance = async (req, res) => {
             success: false,
             message: error.message,
             attendance: []
+        });
+    }
+};
+
+// Logout function
+module.exports.logout = async (req, res) => {
+    try {
+        req.session.destroy((err) => {
+            if (err) {
+                console.error('Session destroy error:', err);
+                return res.json({
+                    success: false,
+                    message: 'Logout failed'
+                });
+            }
+            
+            // Clear cookies
+            res.clearCookie('connect.sid');
+            
+            return res.json({
+                success: true,
+                message: 'Logged out successfully',
+                redirectUrl: '/'
+            });
+        });
+    } catch (error) {
+        console.error('Logout error:', error);
+        res.json({
+            success: false,
+            message: 'An error occurred during logout'
         });
     }
 };

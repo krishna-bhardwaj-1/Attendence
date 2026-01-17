@@ -8,6 +8,59 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/style/login.css">
     <link rel="shortcut icon" href="https://i.pinimg.com/474x/35/10/fd/3510fde9ffb75ed4c651ee5e26988614.jpg" type="image/x-icon">
+    <style>
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .error-alert {
+            background-color: #ff6b6b !important;
+            border: 1px solid #ff5252;
+            border-radius: 8px;
+            color: white;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            animation: slideDown 0.3s ease-out;
+            box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+            margin-bottom: 20px;
+        }
+        
+        .error-alert i {
+            font-size: 1.2rem;
+            flex-shrink: 0;
+        }
+        
+        .error-alert span {
+            flex-grow: 1;
+            font-weight: 500;
+        }
+        
+        .error-alert button {
+            background: transparent;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+        
+        .error-alert button:hover {
+            transform: scale(1.1);
+        }
+    </style>
     <script>
         function showLoginForm(type) {
             const cardSelection = document.getElementById('cardSelection');
@@ -119,18 +172,27 @@
                         </div>
                         <h2 class="portal-title">Student Portal</h2>
                     </div>
+
+                    <!-- Error Alert Bar -->
+                    <div id="studentErrorAlert" class="error-alert" style="display: none; margin-bottom: 20px; padding: 15px; background-color: #ff6b6b; border-radius: 8px; color: white; align-items: center; gap: 10px; animation: slideDown 0.3s ease-out;">
+                        <i class="fas fa-exclamation-circle" style="font-size: 1.2rem; flex-shrink: 0;"></i>
+                        <span id="studentErrorMessage" style="flex-grow: 1;"></span>
+                        <button type="button" onclick="document.getElementById('studentErrorAlert').style.display = 'none';" style="background: transparent; border: none; color: white; cursor: pointer; font-size: 1.2rem; padding: 0;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
                     
-                    <form class="portal-form" method="POST" action="/student/portal" autocomplete="off">
+                    <form class="portal-form" id="studentPortalForm" onsubmit="handleStudentLogin(event)" autocomplete="off">
                         <div class="input-group">
                             <div class="input-container">
-                                <input type="text" name="rollNumber" class="form-input" placeholder="University Roll No." required>
+                                <input type="text" name="rollNumber" id="studentRollNumber" class="form-input" placeholder="University Roll No." required>
                                 <i class="fas fa-id-card input-icon"></i>
                             </div>
                         </div>
                         
                         <div class="input-group">
                             <div class="input-container">
-                                <input type="text" name="name" class="form-input" placeholder="Full Name" required>
+                                <input type="text" name="name" id="studentName" class="form-input" placeholder="Full Name" required>
                                 <i class="fas fa-user input-icon"></i>
                             </div>
                         </div>
@@ -532,6 +594,80 @@
                 resendBtn.disabled = false;
                 resendBtn.textContent = 'Resend OTP';
             }
+        }
+
+        // Handle Student Login via AJAX
+        async function handleStudentLogin(event) {
+            event.preventDefault();
+            
+            const rollNumber = document.getElementById('studentRollNumber').value.trim();
+            const name = document.getElementById('studentName').value.trim();
+            const submitBtn = document.getElementById('student-access-btn');
+            const errorAlert = document.getElementById('studentErrorAlert');
+            const errorMessage = document.getElementById('studentErrorMessage');
+            
+            // Hide error alert when user tries again
+            if (errorAlert) {
+                errorAlert.style.display = 'none';
+            }
+            
+            if (!rollNumber || !name) {
+                if (errorAlert && errorMessage) {
+                    errorMessage.textContent = 'Please enter both roll number and name';
+                    errorAlert.style.display = 'flex';
+                    errorAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+                return false;
+            }
+            
+            // Disable button while processing
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Accessing...';
+            }
+            
+            let isSuccess = false;
+            
+            try {
+                const response = await fetch('/student/portal', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ rollNumber, name }),
+                    credentials: 'same-origin'
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    isSuccess = true;
+                    // Redirect to portal on successful login
+                    window.location.href = data.redirectUrl;
+                } else {
+                    // Show error in alert bar and stay on the same page
+                    if (errorAlert && errorMessage) {
+                        errorMessage.textContent = data.message || 'Wrong entry. Please check your credentials.';
+                        errorAlert.style.display = 'flex';
+                        errorAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                }
+            } catch (error) {
+                if (errorAlert && errorMessage) {
+                    errorMessage.textContent = 'An error occurred. Please try again.';
+                    errorAlert.style.display = 'flex';
+                    errorAlert.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                }
+                console.error('Student login error:', error);
+            } finally {
+                // Re-enable button if not redirecting
+                if (submitBtn && !isSuccess) {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fas fa-sign-in-alt"></i> Access Portal';
+                }
+            }
+            
+            return false;
         }
     </script>
 </body>

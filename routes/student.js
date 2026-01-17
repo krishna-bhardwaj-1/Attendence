@@ -6,6 +6,8 @@ const studentController = require('../controller/student');
 router.get('/login', (req, res) => res.render('../views/student/login'));
 router.get('/portal', studentController.getPortal);
 router.post('/portal', studentController.postPortal);
+router.get('/logout', studentController.logout);
+router.post('/logout', studentController.logout);
 router.get('/signup', studentController.getSignUp);
 router.post('/signup', upload.single('photo'), studentController.postSignUp);
 router.get('/check-access', studentController.checkAccess);

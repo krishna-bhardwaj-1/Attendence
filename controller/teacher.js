@@ -375,14 +375,13 @@ module.exports.getAttendance = async (req, res, next) => {
             scriptPath: path.join(__dirname, '../ml'),
             args: [
                 student.photo,
-                rollNumber.toString(),
-                '60'
+                rollNumber.toString()
             ]
         };
 
         console.log(`[Face Recognition] Starting Python script...`);
 
-        PythonShell.run('student_face_recognition.py', options, async (err, results) => {
+        PythonShell.run('liveness_comparison.py', options, async (err, results) => {
             if (err) {
                 console.error('[Face Recognition] ✗ Error:', err.message);
                 
