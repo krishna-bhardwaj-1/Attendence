@@ -11,6 +11,7 @@
     "start": "nodemon app.js -e js,mjs,cjs,json,hbs"
   },
   "dependencies": {
+    "axios": "^1.13.2",
     "cloudinary": "^1.41.3",
     "dotenv": "^17.2.3",
     "express": "^5.1.0",

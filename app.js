@@ -44,14 +44,24 @@ app.use('/teacher',teacherRouter);
 
 app.use('/api/teacher', teacherRouter);
 
-// Connect to MongoDB Atlas using .env
-mongoose.connect(process.env.MONGODB_URI).then(()=>{
+// Connect to MongoDB Atlas with better timeout handling
+mongoose.connect(process.env.MONGODB_URI, {
+    serverSelectionTimeoutMS: 60000,  // Increase timeout to 60 seconds
+    socketTimeoutMS: 60000,
+    maxPoolSize: 10,
+    retryWrites: true,
+    w: 'majority',
+    wtimeout: 10000
+}).then(()=>{
     app.listen(port,()=>{
         console.log('✅ MongoDB Atlas connected successfully');
         console.log(`🚀 Server Connected Successfully at ${port}`);
     })
 })
 .catch((err)=>{
-    console.error('❌ Database connection error:', err);
-    process.exit(1);
+    console.error('❌ Database connection error:', err.message);
+    console.log('⏳ Retrying connection in 5 seconds...');
+    setTimeout(() => {
+        process.exit(1);
+    }, 5000);
 })

@@ -1,15 +1,10 @@
 const Student = require('../models/student');
 const ClassAccess = require('../models/classAccess');
 const MarkPresent = require('../models/markpresent');
-const { spawn } = require('child_process');
-const path = require('path');
+const axios = require('axios');
 
-// Allow configuring Python path via environment variable
-// Prioritize conda environment Python for this project
-const PYTHON_PATH = process.env.PYTHON_PATH || 
-    '/opt/anaconda3/envs/project/bin/python3' ||
-    (process.platform === 'darwin' ? '/Users/krishna/.pyenv/shims/python3' : 'python3') ||
-    'python3';
+// Flask recognition service endpoint (Python on 9000, Node.js on 8000)
+const RECOGNITION_API = process.env.RECOGNITION_API || 'http://localhost:9000/recognize';
 
 module.exports.getSignUp = async (req, res, next) => {
     res.render('../views/student/signup');
@@ -265,95 +260,58 @@ module.exports.recognizeFrame = async (req, res) => {
             return res.json({ faceDetected: false });
         }
 
-        // Find student
-        const student = await Student.findOne({ rollNumber: parseInt(rollNumber) });
-        if (!student || !student.photo) {
-            return res.json({ faceDetected: false });
+        // Call Flask recognition service
+        try {
+            const response = await axios.post(RECOGNITION_API, {
+                rollNumber: rollNumber.toString(),
+                frame: frame
+            }, {
+                timeout: 15000 // 15 second timeout (increased for face detection)
+            });
+            
+            const result = response.data;
+            
+            // Log results
+            if (result.matched) {
+                console.log('[Face Recognition] ✓ Match detected', {
+                    confidence: (result.confidence * 100).toFixed(1) + '%',
+                    isLive: result.isLive
+                });
+            } else {
+                console.log('[Face Recognition] ✗ No match', {
+                    confidence: (result.confidence * 100).toFixed(1) + '%',
+                    isLive: result.isLive,
+                    reason: result.message
+                });
+            }
+            
+            return res.json(result);
+            
+        } catch (error) {
+            if (error.response) {
+                // Flask API returned an error
+                console.error('[Face Recognition] API error:', error.response.data);
+                return res.json(error.response.data);
+            } else if (error.code === 'ECONNREFUSED') {
+                console.error('[Face Recognition] Cannot connect to Flask API at', RECOGNITION_API);
+                return res.json({ 
+                    success: false, 
+                    matched: false, 
+                    error: 'Recognition service unavailable' 
+                });
+            } else {
+                console.error('[Face Recognition] Error:', error.message);
+                return res.json({ 
+                    success: false, 
+                    matched: false, 
+                    error: error.message 
+                });
+            }
         }
 
-        // Call Python with frame data - lightweight real-time detection
-        const python = spawn(PYTHON_PATH, [
-            '-W', 'ignore::UserWarning',
-            path.join(__dirname, '../ml/liveness_comparison.py'),
-            student.photo,
-            frame
-        ]);
-
-        let result = '';
-        let hasResponded = false;
-        
-        // Set timeout for Python process (5 seconds max - lightweight detection is fast)
-        const processTimeout = setTimeout(() => {
-            if (!hasResponded) {
-                hasResponded = true;
-                python.kill('SIGKILL');
-                console.error('[Real-time Detection] Python process timeout - killing process');
-                res.json({ matched: false, error: 'Process timeout' });
-            }
-        }, 5000);
-
-        python.stdout.on('data', (data) => {
-            result += data.toString();
-        });
-
-        // Suppress warnings
-        python.stderr.on('data', (data) => {
-            const errorMsg = data.toString();
-            if (!errorMsg.includes('pkg_resources') && !errorMsg.includes('UserWarning')) {
-                console.error('[Python stderr]', errorMsg);
-            }
-        });
-
-        python.on('close', (code) => {
-            if (hasResponded) return;
-            hasResponded = true;
-            clearTimeout(processTimeout);
-            
-            if (code !== 0) {
-                console.error(`[Real-time Detection] Python exited with code ${code}`);
-            }
-            
-            try {
-                const rawOutput = result.trim().split('\n').pop();
-                if (!rawOutput) {
-                    console.error('[Real-time Detection] No output from Python script');
-                    res.json({ matched: false, error: 'No output' });
-                    return;
-                }
-                const parsed = JSON.parse(rawOutput);
-                
-                // Log results
-                if (parsed.matched) {
-                    console.log('[Real-time Detection] ✓ Match detected', {
-                        confidence: (parsed.confidence * 100).toFixed(1) + '%',
-                        is_live: parsed.is_live
-                    });
-                } else {
-                    console.log('[Real-time Detection] ✗ No match', {
-                        confidence: (parsed.confidence * 100).toFixed(1) + '%',
-                        is_live: parsed.is_live,
-                        reason: parsed.message
-                    });
-                }
-                
-                res.json(parsed);
-            } catch (e) {
-                console.error('[Real-time Detection Parse Error]', e.message);
-                res.json({ matched: false, error: 'Parse error' });
-            }
-        });
-
-        python.on('error', (error) => {
-            if (hasResponded) return;
-            hasResponded = true;
-            clearTimeout(processTimeout);
-            console.error('[Real-time Detection] Python spawn error:', error.message);
-            res.json({ matched: false, error: 'Process error: ' + error.message });
-        });
-
     } catch (error) {
-        console.error('Real-time detection error:', error);
-        res.json({ matched: false });
+        console.error('Face recognition error:', error);
+        res.json({ success: false, matched: false });
     }
 };
 
