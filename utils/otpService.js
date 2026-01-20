@@ -1,28 +1,35 @@
 const nodemailer = require('nodemailer');
+require('dotenv').config();
 const otpStore = new Map();
 
-const emailUser = 'krishna.bhardwaj_cs23@gla.ac.in';
-const emailPass = 'jhhg zemz ihvo vfwl';
+const emailUser = process.env.EMAIL_USER;
+const emailPass = process.env.EMAIL_PASSWORD;
 
 if (!emailUser || !emailPass) {
-    console.warn('⚠️ Email credentials not configured');
+    console.warn('⚠️ Email credentials not configured in .env file');
+    console.warn('⚠️ Please add EMAIL_USER and EMAIL_PASSWORD to .env file');
 } else {
     console.log('✅ Email credentials loaded');
     console.log('📧 Email User:', emailUser);
-    console.log('🔑 Password length:', emailPass.length, 'characters');
 }
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
+    host: 'smtp.gmail.com',
+    port: 587,
+    secure: false, // Use TLS instead of SSL
     auth: {
         user: emailUser,
         pass: emailPass
-    }
+    },
+    connectionTimeout: 5000,
+    socketTimeout: 5000
 });
 
 transporter.verify(function(error, success) {
     if (error) {
         console.error('❌ SMTP Connection Failed:', error.message);
+        console.error('❌ Error Code:', error.code);
     } else {
         console.log('✅ SMTP Server is ready to send emails');
     }

@@ -96,7 +96,13 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         
         if (statusDescription) {
-            statusDescription.textContent = 'Teacher has enabled attendance. Click "Mark Present" to mark your attendance.';
+            // Check if BLE is available globally
+            const bleConnected = window.bleController && window.bleController.isConnected;
+            if (bleConnected) {
+                statusDescription.textContent = 'BLE connected ✅ Click "Mark Present" 🤯';
+            } else {
+                statusDescription.textContent = 'Teacher has enabled attendance. Please connect to BLE first 🥲';
+            }
         }
     }
     

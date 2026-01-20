@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # Node.js Web Application
+  node-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - NODE_ENV=production
+      - PORT=8000
+      - RECOGNITION_API=http://flask-ml:9000/recognize
+      - MONGO_ATLAS_URI=${MONGO_ATLAS_URI}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - SESSION_SECRET=${SESSION_SECRET}
+    depends_on:
+      - flask-ml
+    restart: unless-stopped
+    volumes:
+      - ./public:/app/public
+      - ./views:/app/views
+
+  # Flask ML API
+  flask-ml:
+    build:
+      context: ./ml
+      dockerfile: Dockerfile
+    ports:
+      - "9000:9000"
+    environment:
+      - FLASK_ENV=production
+      - MONGO_ATLAS_URI=${MONGO_ATLAS_URI}
+    restart: unless-stopped

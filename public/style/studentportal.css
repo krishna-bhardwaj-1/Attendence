@@ -977,3 +977,243 @@ a{
 .logout-btn:focus {
     outline-color: var(--danger-color);
 }
+
+/* ============ BLE CONTROL STYLES ============ */
+
+.button-group {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* BLE Connect Button */
+.ble-btn {
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    border: 1px solid rgba(79, 70, 229, 0.5);
+    color: white;
+    padding: 12px 18px;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    font-size: 0.95rem;
+}
+
+.ble-btn:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.3);
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+}
+
+.ble-btn:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.ble-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.ble-btn.connected {
+    background: linear-gradient(135deg, #10b981, #059669);
+    border-color: rgba(16, 185, 129, 0.5);
+}
+
+.ble-btn.connected:hover {
+    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.3);
+}
+
+.ble-btn.disconnected {
+    background: linear-gradient(135deg, #6b7280, #4b5563);
+    border-color: rgba(107, 114, 128, 0.5);
+}
+
+.ble-btn i {
+    font-size: 1.1rem;
+}
+
+/* BLE Status Panel */
+.ble-status-panel {
+    background: var(--card-bg);
+    border: 1px solid var(--border-accent);
+    border-radius: 12px;
+    padding: 0;
+    margin-top: 20px;
+    display: none;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.ble-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: linear-gradient(90deg, rgba(79, 70, 229, 0.1), rgba(139, 92, 246, 0.1));
+}
+
+.ble-header h4 {
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--accent-primary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: var(--text-primary);
+}
+
+.ble-content {
+    padding: 20px;
+}
+
+.ble-info {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border-subtle);
+}
+
+.info-row:last-child {
+    border-bottom: none;
+}
+
+.info-row .label {
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.info-row span:last-child {
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
+.status-connected,
+.status-disconnected {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.9rem;
+}
+
+.status-connected {
+    color: var(--success-color);
+}
+
+.status-disconnected {
+    color: var(--text-muted);
+}
+
+.info-row .dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+.status-connected .dot {
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+/* BLE Message */
+.ble-message {
+    padding: 12px;
+    border-radius: 8px;
+    text-align: center;
+    font-size: 0.9rem;
+    min-height: 20px;
+    transition: all 0.3s ease;
+}
+
+.ble-message.ble-info {
+    background: rgba(14, 165, 233, 0.2);
+    color: #0ea5e9;
+    border: 1px solid rgba(14, 165, 233, 0.3);
+}
+
+.ble-message.ble-success {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--success-color);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.ble-message.ble-error {
+    background: rgba(239, 68, 68, 0.2);
+    color: var(--danger-color);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.ble-message.ble-warning {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--warning-color);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .button-group {
+        flex-direction: column;
+        width: 100%;
+    }
+
+    .ble-btn {
+        width: 100%;
+        justify-content: center;
+    }
+
+    .mark-present-btn {
+        width: 100%;
+    }
+}

@@ -195,10 +195,39 @@
                             <p id="statusDescription">Click "Mark Present" to start</p>
                         </div>
                     </div>
-                    <a href="#" class="mark-present-btn disabled" id="markPresentBtn">
-                        <i class="fas fa-user-check"></i>
-                        Mark Present
-                    </a>
+                    <div class="button-group">
+                        <a href="#" class="mark-present-btn disabled" id="markPresentBtn">
+                            <i class="fas fa-user-check"></i>
+                            Mark Present
+                        </a>
+                        <button id="bleConnectBtn" class="ble-btn ble-connect" title="Connect to BLE Device">
+                            <i class="fas fa-bluetooth"></i>
+                            <span id="bleStatus">BLE</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- BLE Status Panel -->
+                <div id="bleStatusPanel" class="ble-status-panel">
+                    <div class="ble-header">
+                        <h4><i class="fas fa-bluetooth"></i> BLE Control</h4>
+                        <button id="bleClosePanelBtn" class="close-btn">×</button>
+                    </div>
+                    <div class="ble-content">
+                        <div class="ble-info">
+                            <div class="info-row">
+                                <span class="label">Device:</span>
+                                <span id="bleDeviceNameDisplay">Not connected</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="label">Status:</span>
+                                <span id="bleStatusDisplay" class="status-disconnected">
+                                    <span class="dot"></span>Disconnected
+                                </span>
+                            </div>
+                        </div>
+                        <div id="bleMessage" class="ble-message"></div>
+                    </div>
                 </div>
 
                 <!-- Camera Section with Canvas Overlay -->
@@ -238,6 +267,7 @@
         </div>
     </div>
     
+    <script src="/js/bleControl.js"></script>
     <script src="/js/faceRecognition.js"></script>
     <script src="/js/student.js"></script>
     <script>
@@ -250,6 +280,12 @@
         const statusIcon = document.getElementById('statusIcon');
         const statusTitle = document.getElementById('statusTitle');
         const statusDescription = document.getElementById('statusDescription');
+        
+        // BLE Elements
+        const bleConnectBtn = document.getElementById('bleConnectBtn');
+        const bleStatusPanel = document.getElementById('bleStatusPanel');
+        const bleClosePanelBtn = document.getElementById('bleClosePanelBtn');
+        const bleMessage = document.getElementById('bleMessage');
         
         let faceRecognition = new FaceRecognitionHandler();
         let isProcessing = false;
@@ -273,10 +309,120 @@
             loadRecentAttendance();
         }
 
+        // ============ BLE CONTROLLER SETUP ============
+        
+        // Check BLE Support
+        if (!BLEController.isSupported()) {
+            bleConnectBtn.disabled = true;
+            bleConnectBtn.title = "Web Bluetooth not supported in this browser";
+            console.warn("⚠️ Web Bluetooth not supported");
+        }
+
+        // BLE Status Callback
+        window.bleController.onStatusChange = (message, type) => {
+            console.log(`[BLE Status ${type}]:`, message);
+            bleMessage.textContent = message;
+            bleMessage.className = `ble-message ble-${type}`;
+        };
+
+        // BLE Connection Change Callback
+        window.bleController.onConnectionChange = async (isConnected) => {
+            updateBLEUI(isConnected);
+            
+            // Turn LED ON when BLE connects
+            if (isConnected) {
+                try {
+                    await window.bleController.ledOn();
+                    console.log("✅ BLE connected - LED turned ON automatically");
+                } catch (error) {
+                    console.error("⚠️ Failed to turn LED ON on connection:", error);
+                }
+            }
+        };
+
+        // BLE Connect Button
+        bleConnectBtn.addEventListener('click', async (e) => {
+            e.preventDefault();
+            
+            if (window.bleController.isConnected) {
+                // Disconnect
+                await window.bleController.disconnect();
+                updateBLEUI(false);
+            } else {
+                // Connect
+                bleConnectBtn.disabled = true;
+                const success = await window.bleController.connect();
+                if (!success) {
+                    bleConnectBtn.disabled = false;
+                }
+            }
+        });
+
+        // Close BLE Panel
+        bleClosePanelBtn.addEventListener('click', () => {
+            bleStatusPanel.style.display = 'none';
+        });
+
+        // BLE Connect Button Click to Show Panel
+        const originalBleClick = bleConnectBtn.onclick;
+        bleConnectBtn.addEventListener('click', () => {
+            if (window.bleController.isConnected) {
+                bleStatusPanel.style.display = 'block';
+            }
+        });
+
+        // Update BLE UI
+        function updateBLEUI(isConnected) {
+            const status = window.bleController.getStatus();
+            
+            if (isConnected) {
+                bleConnectBtn.classList.add('connected');
+                bleConnectBtn.classList.remove('disconnected');
+                document.getElementById('bleStatus').textContent = 'Connected ✅';
+                document.getElementById('bleDeviceNameDisplay').textContent = status.deviceName;
+                document.getElementById('bleStatusDisplay').className = 'status-connected';
+                document.getElementById('bleStatusDisplay').innerHTML = 
+                    '<span class="dot"></span>Connected';
+                bleStatusPanel.style.display = 'block';
+                
+                // Update Mark Present button description when BLE connects
+                if (statusDescription && statusTitle.textContent === 'Access Granted') {
+                    statusDescription.textContent = 'BLE connected ✅ Click "Mark Present".';
+                }
+            } else {
+                bleConnectBtn.classList.remove('connected');
+                bleConnectBtn.classList.add('disconnected');
+                document.getElementById('bleStatus').textContent = 'BLE';
+                document.getElementById('bleDeviceNameDisplay').textContent = 'Not connected';
+                document.getElementById('bleStatusDisplay').className = 'status-disconnected';
+                document.getElementById('bleStatusDisplay').innerHTML = 
+                    '<span class="dot"></span>Disconnected';
+                bleStatusPanel.style.display = 'none';
+                
+                // Update Mark Present button description when BLE disconnects
+                if (statusDescription && statusTitle.textContent === 'Access Granted') {
+                    statusDescription.textContent = 'Please connect to BLE first, then mark your attendance.';
+                }
+            }
+        }
+
         markPresentBtn.addEventListener('click', async function(e) {
             e.preventDefault();
             
+            // Check if button is disabled
             if (this.classList.contains('disabled') || isProcessing) {
+                // Show appropriate message based on status
+                if (statusTitle.textContent === 'Attendance Pending') {
+                    alert('⏳ Please wait while your subject teacher grants access to mark attendance.');
+                } else if (!window.bleController.isConnected) {
+                    alert('📶 Please connect to BLE first.\n\nClick the "BLE" button and select "HMSoft" to connect.');
+                }
+                return;
+            }
+            
+            // Check BLE connection (critical requirement)
+            if (!window.bleController.isConnected) {
+                alert('📶 BLE Not Connected\n\nPlease connect to BLE before marking attendance.\n\n1. Click the "BLE" button\n2. Select "HMSoft" device\n3. Then click "Mark Present"');
                 return;
             }
             
@@ -368,6 +514,16 @@
                         const saveResult = await saveResponse.json();
                         
                         if (saveResult.success) {
+                            // Send LED ON command to BLE if connected
+                            if (window.bleController.isConnected) {
+                                try {
+                                    await window.bleController.ledOn();
+                                    console.log("✅ LED turned ON via BLE");
+                                } catch (error) {
+                                    console.error("⚠️ Failed to send LED command:", error);
+                                }
+                            }
+                            
                             // Refresh recent attendance after successful save
                             if (studentRollNumber) {
                                 loadRecentAttendance();
@@ -407,10 +563,69 @@
                     <p style="color: rgba(255,255,255,0.8); margin-top: 20px;">
                         <i class="fas fa-sync-alt"></i> Synced with teacher portal
                     </p>
+                    <p style="color: rgba(255,255,255,0.7); margin-top: 15px; font-size: 0.9rem;">
+                        Logging out in <span id="logoutCountdown">3</span>s...
+                    </p>
                 </div>
             `;
             document.body.appendChild(modal);
-            setTimeout(() => location.reload(), 3000);
+            
+            // Auto-logout after 2-3 seconds
+            let countdown = 3;
+            const countdownEl = document.getElementById('logoutCountdown');
+            
+            const countdownInterval = setInterval(() => {
+                countdown--;
+                if (countdownEl) {
+                    countdownEl.textContent = countdown;
+                }
+            }, 1000);
+            
+            setTimeout(async () => {
+                clearInterval(countdownInterval);
+                
+                // Turn off LED if BLE connected
+                if (window.bleController && window.bleController.isConnected) {
+                    try {
+                        await window.bleController.ledOff();
+                        console.log("✅ LED turned OFF automatically");
+                    } catch (error) {
+                        console.error("⚠️ Failed to turn LED OFF:", error);
+                    }
+                    
+                    // Disconnect BLE
+                    try {
+                        await window.bleController.disconnect();
+                        console.log("✅ BLE disconnected automatically");
+                    } catch (error) {
+                        console.error("⚠️ Failed to disconnect BLE:", error);
+                    }
+                }
+                
+                // Call logout API
+                try {
+                    const response = await fetch('/student/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        credentials: 'same-origin'
+                    });
+                    
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        // Redirect to home page
+                        window.location.href = data.redirectUrl;
+                    } else {
+                        console.error('Logout failed:', data.message);
+                        location.reload();
+                    }
+                } catch (error) {
+                    console.error('Logout error:', error);
+                    location.reload();
+                }
+            }, 3000);
         }
 
         function showErrorModal(message) {
@@ -527,6 +742,17 @@
             }
 
             try {
+                // Send LED OFF command to BLE if connected
+                if (window.bleController.isConnected) {
+                    try {
+                        await window.bleController.ledOff();
+                        console.log("✅ LED turned OFF via BLE");
+                    } catch (error) {
+                        console.error("⚠️ Failed to send LED OFF command:", error);
+                    }
+                    await window.bleController.disconnect();
+                }
+
                 const response = await fetch('/student/logout', {
                     method: 'POST',
                     headers: {

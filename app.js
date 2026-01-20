@@ -7,7 +7,6 @@ const port = process.env.PORT || 8000;
 const mongoose=require('mongoose');
 app.set('view engine','hbs');
 
-// Prevent caching to avoid back button showing protected pages
 app.use((req, res, next) => {
     res.header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
     res.header('Pragma', 'no-cache');
@@ -60,8 +59,7 @@ mongoose.connect(process.env.MONGODB_URI, {
 })
 .catch((err)=>{
     console.error('❌ Database connection error:', err.message);
-    console.log('⏳ Retrying connection in 5 seconds...');
     setTimeout(() => {
         process.exit(1);
-    }, 5000);
+    }, 10000);
 })

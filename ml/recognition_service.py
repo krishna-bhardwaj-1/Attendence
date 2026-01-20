@@ -20,8 +20,8 @@ STUDENTS_COLLECTION = "students"
 ATTENDANCE_COLLECTION = "attendance"
 
 # Tuned for production - better accuracy
-MATCH_TOLERANCE = 0.65     # Face distance tolerance
-MIN_CONFIDENCE = 0.65      # Require 65% confidence for attendance
+MATCH_TOLERANCE = 0.62     # Face distance tolerance
+MIN_CONFIDENCE = 0.62      # Require 65% confidence for attendance
 LIVENESS_THRESHOLD = 50    # Sharpness threshold for real-time video
 
 _encoding_cache: Dict[str, np.ndarray] = {}
