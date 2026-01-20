@@ -1,18 +1,16 @@
 # Flask ML API Dockerfile
 FROM python:3.10-slim
 
-# Install system dependencies for OpenCV and face_recognition
+# Install required system packages (safe for Render)
 RUN apt-get update && apt-get install -y \
     build-essential \
     cmake \
-    libopencv-dev \
-    python3-opencv \
+    libgl1 \
     libglib2.0-0 \
-    libsm6 \
+    libx11-6 \
     libxext6 \
-    libxrender-dev \
-    libgomp1 \
-    libatlas-base-dev \
+    libsm6 \
+    libxrender1 \
     && rm -rf /var/lib/apt/lists/*
 
 # Set working directory
