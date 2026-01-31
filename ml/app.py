@@ -12,6 +12,11 @@ def health():
     return jsonify({"success": True, "message": "API working ✅"})
 
 
+@app.route("/", methods=["GET"])
+def root():
+    return jsonify({"success": True, "message": "API running", "routes": [r.rule for r in app.url_map.iter_rules()]})
+
+
 @app.route("/recognize", methods=["POST"])
 def recognize():
     """

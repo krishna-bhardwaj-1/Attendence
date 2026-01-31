@@ -1,46 +1,24 @@
-# Flask ML API Dockerfile
-# Use slim Python base
-FROM python:3.10-slim
+# Flask ML API Dockerfile using Mambaforge (Conda) to install prebuilt dlib
+FROM condaforge/mambaforge:23.1.0-0
 
-# Install required system packages to build dlib/face-recognition
-ENV DEBIAN_FRONTEND=noninteractive
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    cmake \
-    pkg-config \
-    git \
-    ca-certificates \
-    python3-dev \
-    libboost-all-dev \
-    libblas-dev \
-    liblapack-dev \
-    libgl1 \
-    libglib2.0-0 \
-    libx11-6 \
-    libxext6 \
-    libsm6 \
-    libxrender1 \
-    libjpeg-dev \
-    zlib1g-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set working directory
+# Create and set working directory
 WORKDIR /app
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy conda environment file then create environment with mamba
+COPY environment.yml /app/environment.yml
+RUN mamba env create -f /app/environment.yml && \
+    mamba clean --all --yes
 
-# Speed up builds a bit and ensure wheel tooling is present
-ENV PIP_NO_CACHE_DIR=off
-RUN pip install --upgrade pip setuptools wheel
-
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Ensure conda environment is available for subsequent RUN/CMD
+SHELL ["/bin/bash", "-lc"]
+ENV CONDA_DEFAULT_ENV=attendance-ml
+ENV PATH=/opt/conda/envs/attendance-ml/bin:$PATH
 
 # Copy application files
-COPY . .
+COPY . /app
 
 # Expose port
 EXPOSE 9000
 
+# Run using the conda environment's Python
 CMD ["gunicorn", "--bind", "0.0.0.0:9000", "--workers", "2", "--timeout", "120", "--worker-class", "sync", "app:app"]
